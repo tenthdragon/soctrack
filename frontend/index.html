@@ -649,38 +649,61 @@ function hideScrapingOverlay() {
   document.getElementById('scrapingOverlay').classList.remove('show');
 }
 
+let pollBusy = false; // prevent overlapping polls
+
 function startPolling(postId) {
   scrapingPosts.add(postId);
-  showScrapingOverlay('Scraping in progress...', 'Biasanya selesai dalam 30-60 detik');
+  const count = scrapingPosts.size;
+  showScrapingOverlay(
+    `Scraping ${count} post${count > 1 ? 's' : ''}...`,
+    'Biasanya selesai dalam 30-60 detik per post'
+  );
 
-  // Poll every 5 seconds to check if scraping is done
-  if (pollTimer) clearInterval(pollTimer);
+  // Only start ONE polling loop
+  if (pollTimer) return;
+
   pollTimer = setInterval(async () => {
+    if (pollBusy || scrapingPosts.size === 0) return;
+    pollBusy = true;
+
     try {
       const freshPosts = await apiFetch(`/brands/${currentBrand}/posts`);
-      const updated = freshPosts.find(p => p.id === postId);
+      let anyDone = false;
 
-      if (updated && updated.title && updated.title !== '') {
-        // Scraping completed — title is filled
-        scrapingPosts.delete(postId);
+      // Check which scraping posts are now done (have title)
+      for (const pid of [...scrapingPosts]) {
+        const updated = freshPosts.find(p => p.id === pid);
+        if (updated && updated.title && updated.title !== '') {
+          scrapingPosts.delete(pid);
+          anyDone = true;
+        }
+      }
+
+      if (anyDone) {
         currentPosts = freshPosts;
         renderPostList();
         renderBrandStats();
-        selectPost(postId);
-
-        if (scrapingPosts.size === 0) {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          hideScrapingOverlay();
-          showToast('Scraping selesai! Data berhasil diambil.');
+        const remaining = scrapingPosts.size;
+        if (remaining > 0) {
+          document.getElementById('scrapingDetail').textContent =
+            `${remaining} post tersisa...`;
         }
+      }
+
+      if (scrapingPosts.size === 0) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        hideScrapingOverlay();
+        showToast('Scraping selesai! Data berhasil diambil.');
       }
     } catch (e) {
       console.error('Poll error:', e);
+    } finally {
+      pollBusy = false;
     }
-  }, 5000);
+  }, 8000); // poll every 8s instead of 5s to reduce flicker
 
-  // Auto-stop polling after 2 minutes
+  // Auto-stop after 3 minutes
   setTimeout(() => {
     if (pollTimer) {
       clearInterval(pollTimer);
@@ -689,7 +712,7 @@ function startPolling(postId) {
       hideScrapingOverlay();
       showToast('Scraping timeout. Coba refresh halaman.', true);
     }
-  }, 120000);
+  }, 180000);
 }
 
 // ===== RENDER: BRANDS SIDEBAR =====
@@ -1197,13 +1220,14 @@ async function submitModal() {
     renderBrandStats();
   }
 
-  // Start polling for all new posts
-  for (const p of currentPosts) {
-    if (!p.title || p.tiktok_video_id === 'pending') {
-      startPolling(p.id);
-    }
+  // Start polling for all pending posts (single poll loop handles all)
+  const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
+  for (const p of pendingPosts) {
+    scrapingPosts.add(p.id);
   }
-  if (currentPosts.length > 0) selectPost(currentPosts[currentPosts.length - 1].id);
+  if (pendingPosts.length > 0) {
+    startPolling(pendingPosts[0].id); // triggers the single poll loop
+  }
 }
 
 async function scrapeNow(postId) {

@@ -104,6 +104,46 @@ def extract_username(url: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+def _upsert_snapshot(db: Session, post_id: uuid.UUID, views: int, likes: int, comments: int, shares: int):
+    """
+    Insert or update snapshot for today's date.
+    If a snapshot already exists for the same post on the same date, update it.
+    Otherwise create a new one.
+    """
+    from sqlalchemy import func, cast, Date
+    today = datetime.utcnow().date()
+
+    existing = (
+        db.query(Snapshot)
+        .filter(
+            Snapshot.post_id == post_id,
+            cast(Snapshot.recorded_at, Date) == today,
+        )
+        .first()
+    )
+
+    if existing:
+        existing.views = views
+        existing.likes = likes
+        existing.comments = comments
+        existing.shares = shares
+        existing.recorded_at = datetime.utcnow()
+        logger.debug(f"Updated existing snapshot for post {post_id} on {today}")
+        return existing
+    else:
+        snapshot = Snapshot(
+            post_id=post_id,
+            views=views,
+            likes=likes,
+            comments=comments,
+            shares=shares,
+            recorded_at=datetime.utcnow(),
+        )
+        db.add(snapshot)
+        logger.debug(f"Created new snapshot for post {post_id} on {today}")
+        return snapshot
+
+
 async def _scrape_tiktok_and_save(post_id: uuid.UUID, url: str):
     """Background task: scrape a single TikTok post and save snapshot."""
     from scraper.tiktok import TikTokScraper
@@ -115,15 +155,7 @@ async def _scrape_tiktok_and_save(post_id: uuid.UUID, url: str):
         await scraper.start()
         metrics = await scraper.scrape_post(url)
 
-        snapshot = Snapshot(
-            post_id=post_id,
-            views=metrics.views,
-            likes=metrics.likes,
-            comments=metrics.comments,
-            shares=metrics.shares,
-            recorded_at=datetime.utcnow(),
-        )
-        db.add(snapshot)
+        _upsert_snapshot(db, post_id, metrics.views, metrics.likes, metrics.comments, metrics.shares)
 
         post = db.query(Post).filter(Post.id == post_id).first()
         if post and not post.title and metrics.title:
@@ -155,15 +187,7 @@ async def _scrape_instagram_and_save(post_id: uuid.UUID, url: str):
         await scraper.start()
         metrics = await scraper.scrape_post(url)
 
-        snapshot = Snapshot(
-            post_id=post_id,
-            views=metrics.views,
-            likes=metrics.likes,
-            comments=metrics.comments,
-            shares=metrics.shares,
-            recorded_at=datetime.utcnow(),
-        )
-        db.add(snapshot)
+        _upsert_snapshot(db, post_id, metrics.views, metrics.likes, metrics.comments, metrics.shares)
 
         post = db.query(Post).filter(Post.id == post_id).first()
         if post:
@@ -223,15 +247,7 @@ async def _scrape_ig_profile_and_save(brand_id: uuid.UUID, username: str):
             db.flush()
 
             # Save initial snapshot with the metrics from profile
-            snapshot = Snapshot(
-                post_id=post.id,
-                views=post_data.views,
-                likes=post_data.likes,
-                comments=post_data.comments,
-                shares=0,
-                recorded_at=datetime.utcnow(),
-            )
-            db.add(snapshot)
+            _upsert_snapshot(db, post.id, post_data.views, post_data.likes, post_data.comments, 0)
             added += 1
 
         db.commit()

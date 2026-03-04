@@ -426,6 +426,31 @@ tr:hover td { background: var(--bg-tertiary); }
 }
 .compare-bar:hover { background: var(--accent-dark); }
 .compare-bar.show { display: flex; align-items: center; gap: 8px; }
+
+/* Selection action bar */
+.selection-bar {
+  display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary);
+  padding: 8px 12px; border-radius: 14px; font-size: 12px; font-weight: 500;
+  z-index: 51; box-shadow: 0 4px 24px rgba(0,0,0,0.5); gap: 8px;
+  transition: all .2s;
+}
+.selection-bar.show { display: flex; align-items: center; }
+.selection-bar .sel-count { color: var(--accent-light); margin-right: 4px; }
+.selection-bar .sel-btn {
+  padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 500; transition: all .15s;
+}
+.sel-btn-scrape { background: var(--accent); color: #fff; }
+.sel-btn-scrape:hover { background: var(--accent-dark); }
+.sel-btn-delete { background: var(--red-bg); color: var(--red); }
+.sel-btn-delete:hover { background: rgba(239,68,68,0.25); }
+.sel-btn-cancel { background: var(--bg-tertiary); color: var(--text-secondary); }
+.sel-btn-cancel:hover { background: var(--border); color: var(--text-primary); }
+
+/* Delete confirm in detail */
+.btn-delete { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
+.btn-delete:hover { border-color: var(--red); }
 </style>
 </head>
 <body>
@@ -543,6 +568,15 @@ tr:hover td { background: var(--bg-tertiary); }
 <div class="compare-bar" id="compareBar" onclick="goToCompare()">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
   Compare <span id="compareCount">0</span> posts
+</div>
+
+<!-- SELECTION ACTION BAR -->
+<div class="selection-bar" id="selectionBar">
+  <span class="sel-count" id="selCount">0</span> dipilih
+  <button class="sel-btn sel-btn-scrape" onclick="scrapeSelected()">Scrape</button>
+  <button class="sel-btn sel-btn-delete" onclick="deleteSelected()">Hapus</button>
+  <button class="sel-btn sel-btn-compare" id="selBtnCompare" style="display:none;background:var(--accent);color:#fff;" onclick="goToCompare()">Compare</button>
+  <button class="sel-btn sel-btn-cancel" onclick="clearSelection()">Batal</button>
 </div>
 
 <!-- ADD POST MODAL -->
@@ -956,9 +990,14 @@ async function renderDetail(postId) {
       <div class="detail-title">${p.title || 'Untitled'}</div>
       <div class="detail-url"><a href="${p.tiktok_url}" target="_blank" style="color:var(--accent)">${p.tiktok_url.length > 60 ? p.tiktok_url.substring(0, 60) + '...' : p.tiktok_url}</a></div>
       <div class="detail-date">Tracking since ${(p.tracking_since || '').slice(0, 10)}</div>
-      <button class="btn btn-outline" style="margin-top:8px;font-size:11px;padding:6px 12px;" onclick="scrapeNow('${p.id}')">
-        🔄 Scrape Now
-      </button>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-outline" style="font-size:11px;padding:6px 12px;" onclick="scrapeNow('${p.id}')">
+          🔄 Scrape Now
+        </button>
+        <button class="btn btn-delete" style="font-size:11px;padding:6px 12px;" onclick="deletePost('${p.id}')">
+          🗑 Hapus
+        </button>
+      </div>
     </div>
 
     <div class="stat-cards">
@@ -1227,11 +1266,20 @@ function toggleCompare(id, checked) {
   } else {
     checked ? selectedCompare.add(id) : selectedCompare.delete(id);
   }
-  const bar = document.getElementById('compareBar');
-  const count = selectedCompare.size;
-  document.getElementById('compareCount').textContent = count;
-  bar.classList.toggle('show', count >= 2);
+  updateSelectionBar();
   renderPostList();
+}
+
+function updateSelectionBar() {
+  const count = selectedCompare.size;
+  document.getElementById('selCount').textContent = count;
+  document.getElementById('selectionBar').classList.toggle('show', count >= 1);
+  // Show compare button only when 2+ selected
+  const cmpBtn = document.getElementById('selBtnCompare');
+  if (cmpBtn) cmpBtn.style.display = count >= 2 ? '' : 'none';
+  // Hide old compare bar — selection bar replaces it
+  document.getElementById('compareBar').classList.remove('show');
+  document.getElementById('compareCount').textContent = count;
 }
 
 function goToCompare() { switchPage('compare'); }
@@ -1496,6 +1544,73 @@ async function scrapeNow(postId) {
   } catch (e) {
     showToast('Gagal memulai scrape: ' + e.message, true);
   }
+}
+
+async function deletePost(postId) {
+  const p = currentPosts.find(x => x.id === postId);
+  const title = p?.title || 'post ini';
+  if (!confirm(`Yakin hapus "${title}"? Data snapshot juga akan dihapus.`)) return;
+  try {
+    await apiFetch(`/posts/${postId}`, { method: 'DELETE' });
+    currentPosts = currentPosts.filter(x => x.id !== postId);
+    selectedCompare.delete(postId);
+    if (currentPost === postId) {
+      currentPost = null;
+      document.getElementById('detailPanel').innerHTML = '';
+    }
+    renderPostList();
+    renderBrandStats();
+    showToast('Post berhasil dihapus.');
+  } catch (e) {
+    showToast('Gagal menghapus post: ' + e.message, true);
+  }
+}
+
+async function scrapeSelected() {
+  const ids = [...selectedCompare];
+  if (ids.length === 0) return;
+  let done = 0;
+  showToast(`Memulai scrape ${ids.length} post...`);
+  for (const id of ids) {
+    try {
+      await apiFetch(`/posts/${id}/scrape`, { method: 'POST' });
+      startPolling(id);
+      done++;
+    } catch (e) { console.error(`Scrape ${id} failed:`, e); }
+  }
+  renderPostList();
+  showToast(`Scrape dimulai untuk ${done} post.`);
+}
+
+async function deleteSelected() {
+  const ids = [...selectedCompare];
+  if (ids.length === 0) return;
+  if (!confirm(`Yakin hapus ${ids.length} post beserta semua data snapshot-nya?`)) return;
+  let done = 0;
+  for (const id of ids) {
+    try {
+      await apiFetch(`/posts/${id}`, { method: 'DELETE' });
+      done++;
+    } catch (e) { console.error(`Delete ${id} failed:`, e); }
+  }
+  currentPosts = currentPosts.filter(p => !selectedCompare.has(p.id));
+  if (selectedCompare.has(currentPost)) {
+    currentPost = null;
+    document.getElementById('detailPanel').innerHTML = '';
+  }
+  clearSelection();
+  renderPostList();
+  renderBrandStats();
+  showToast(`${done} post berhasil dihapus.`);
+}
+
+function clearSelection() {
+  selectedCompare.clear();
+  document.getElementById('selCount').textContent = '0';
+  document.getElementById('selectionBar').classList.remove('show');
+  document.getElementById('compareBar').classList.remove('show');
+  document.getElementById('compareCount').textContent = '0';
+  renderPostList();
 }
 
 async function scrapeAll() {

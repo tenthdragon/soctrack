@@ -330,6 +330,14 @@ tr:hover td { background: var(--bg-tertiary); }
   background: rgba(139,92,246,0.15); color: var(--accent-light);
   animation: pulse 1.5s infinite;
 }
+.waiting-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 10px; font-size: 10px;
+  background: rgba(100,100,120,0.2); color: var(--text-muted);
+}
+.post-row.waiting {
+  opacity: 0.65;
+}
 .scraping-badge svg {
   width: 12px; height: 12px; animation: spin 1s linear infinite;
 }
@@ -960,6 +968,7 @@ function showLoading(el, msg = 'Loading...') {
 
 // ===== SCRAPING STATE =====
 let scrapingPosts = new Set(); // post IDs currently being scraped
+let waitingPosts = new Set();  // post IDs queued, waiting for their turn
 let pollTimer = null;
 
 function showScrapingOverlay(msg = 'Scraping in progress...', detail = 'Mengambil data...', opts = {}) {
@@ -988,6 +997,7 @@ function hideScrapingOverlay() {
   document.getElementById('scrapingCountdown').style.display = 'none';
   document.getElementById('scrapingSpinner').style.display = 'block';
   document.getElementById('scrapingProgressBar').style.display = 'none';
+  waitingPosts.clear();
 }
 
 let pollBusy = false; // prevent overlapping polls
@@ -996,27 +1006,30 @@ let pollInitialCount = 0; // how many posts we started with
 
 function startPolling(postId) {
   scrapingPosts.add(postId);
-  const count = scrapingPosts.size;
-  showScrapingOverlay(
-    `Scraping ${count} post${count > 1 ? 's' : ''}...`,
-    'Biasanya selesai dalam 30-60 detik per post'
-  );
 
   // Only start ONE polling loop
   if (pollTimer) return;
 
-  pollStartedAt = Date.now();
-  pollInitialCount = scrapingPosts.size;
+  if (!pollStartedAt) pollStartedAt = Date.now();
+  // pollInitialCount should already be set by caller for batch;
+  // fallback for single-post scrape
+  if (!pollInitialCount) pollInitialCount = scrapingPosts.size + waitingPosts.size;
+
+  const total = pollInitialCount;
+  showScrapingOverlay(
+    `0/${total} post selesai`,
+    `1 sedang scraping${waitingPosts.size > 0 ? `, ${waitingPosts.size} menunggu` : ''}`
+  );
 
   pollTimer = setInterval(async () => {
-    if (pollBusy || scrapingPosts.size === 0) return;
+    if (pollBusy || (scrapingPosts.size === 0 && waitingPosts.size === 0)) return;
     pollBusy = true;
 
     try {
       const freshPosts = await apiFetch(`/brands/${currentBrand}/posts`);
       let anyDone = false;
-      const initialSize = scrapingPosts.size;
 
+      // Check scraping posts for completion
       for (const pid of [...scrapingPosts]) {
         const updated = freshPosts.find(p => p.id === pid);
         if (!updated) {
@@ -1024,8 +1037,6 @@ function startPolling(postId) {
           anyDone = true;
           continue;
         }
-        // Consider "done" if title exists AND video_id resolved
-        // For re-scrapes, any post with title is done
         const hasTitleNow = updated.title && updated.title.length > 0;
         const videoResolved = updated.tiktok_video_id && updated.tiktok_video_id !== 'pending';
         if (hasTitleNow && videoResolved) {
@@ -1034,25 +1045,37 @@ function startPolling(postId) {
         }
       }
 
-      // Always refresh the data if something changed
-      if (anyDone || initialSize !== scrapingPosts.size) {
+      // When a scraping post finishes, promote next waiting post
+      if (anyDone && waitingPosts.size > 0 && scrapingPosts.size === 0) {
+        const nextPid = waitingPosts.values().next().value;
+        waitingPosts.delete(nextPid);
+        scrapingPosts.add(nextPid);
+      }
+
+      // Always refresh data if something changed
+      if (anyDone) {
         currentPosts = freshPosts;
         renderPostList();
         renderBrandStats();
       }
 
-      const remaining = scrapingPosts.size;
-      const done = pollInitialCount - remaining;
-      if (remaining > 0) {
+      // Update overlay progress
+      const totalPending = scrapingPosts.size + waitingPosts.size;
+      const done = pollInitialCount - totalPending;
+      if (totalPending > 0) {
         const elapsed = Math.round((Date.now() - pollStartedAt) / 1000);
-        document.getElementById('scrapingTitle').textContent = `Scraping ${pollInitialCount} posts...`;
+        document.getElementById('scrapingTitle').textContent =
+          `${done}/${pollInitialCount} post selesai`;
         document.getElementById('scrapingDetail').textContent =
-          `${done} selesai, ${remaining} tersisa (${elapsed}s)`;
+          `${scrapingPosts.size > 0 ? '1 sedang scraping' : ''}${waitingPosts.size > 0 ? `, ${waitingPosts.size} menunggu` : ''} (${elapsed}s)`;
       }
 
-      if (scrapingPosts.size === 0) {
+      // All done!
+      if (scrapingPosts.size === 0 && waitingPosts.size === 0) {
         clearInterval(pollTimer);
         pollTimer = null;
+        pollStartedAt = 0;
+        pollInitialCount = 0;
         hideScrapingOverlay();
         showToast(`Scraping selesai! ${done} post berhasil diambil.`);
       }
@@ -1061,18 +1084,21 @@ function startPolling(postId) {
     } finally {
       pollBusy = false;
     }
-  }, 6000);
+  }, 5000);
 
-  // Auto-stop: 60s per post, minimum 2 minutes, max 10 minutes
-  const timeoutMs = Math.min(Math.max(scrapingPosts.size * 60000, 120000), 600000);
+  // Auto-stop: 90s per post, minimum 2 minutes, max 10 minutes
+  const totalBatch = scrapingPosts.size + waitingPosts.size;
+  const timeoutMs = Math.min(Math.max(totalBatch * 90000, 120000), 600000);
   setTimeout(() => {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
-      const remaining = scrapingPosts.size;
+      const remaining = scrapingPosts.size + waitingPosts.size;
       scrapingPosts.clear();
+      waitingPosts.clear();
+      pollStartedAt = 0;
+      pollInitialCount = 0;
       hideScrapingOverlay();
-      // Refresh one last time
       apiFetch(`/brands/${currentBrand}/posts`).then(posts => {
         currentPosts = posts;
         renderPostList();
@@ -1159,17 +1185,26 @@ function renderPostList() {
   }
 
   container.innerHTML = filtered.map(p => {
-    const isScraping = scrapingPosts.has(p.id) || (!p.title && p.tiktok_video_id === 'pending');
+    const isScraping = scrapingPosts.has(p.id) || (!p.title && !waitingPosts.has(p.id) && p.tiktok_video_id === 'pending');
+    const isWaiting = waitingPosts.has(p.id);
+    const stateClass = isScraping ? 'scraping' : (isWaiting ? 'waiting' : '');
+    const thumbContent = isScraping
+      ? '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>'
+      : (isWaiting ? '<span style="font-size:14px;opacity:0.5">⏳</span>' : (p.platform === 'instagram' ? '<span style="font-size:14px">📷</span>' : '▶'));
+    const titleText = p.title || (isScraping ? 'Mengambil data...' : (isWaiting ? 'Menunggu giliran...' : 'Untitled'));
+    const badge = isScraping
+      ? '<span class="scraping-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Scraping</span>'
+      : (isWaiting ? '<span class="waiting-badge">⏳ Waiting</span>' : '');
     return `
-    <div class="post-row ${currentPost === p.id ? 'active' : ''} ${isScraping ? 'scraping' : ''}" onclick="selectPost('${p.id}')">
+    <div class="post-row ${currentPost === p.id ? 'active' : ''} ${stateClass}" onclick="selectPost('${p.id}')">
       <input type="checkbox" class="post-checkbox" ${selectedCompare.has(p.id) ? 'checked' : ''}
         onclick="event.stopPropagation(); toggleCompare('${p.id}', this.checked)">
-      <div class="post-thumb">${isScraping ? '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>' : (p.platform === 'instagram' ? '<span style="font-size:14px">📷</span>' : '▶')}</div>
+      <div class="post-thumb">${thumbContent}</div>
       <div class="post-info">
-        <div class="post-title">${p.title || (isScraping ? 'Mengambil data...' : 'Untitled')}</div>
+        <div class="post-title">${titleText}</div>
         <div class="post-meta">
           ${(p.posted_at || p.tracking_since || '').slice(0, 10)} · via ${p.source}
-          ${isScraping ? '<span class="scraping-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Scraping</span>' : ''}
+          ${badge}
         </div>
       </div>
     </div>`;
@@ -1430,11 +1465,16 @@ async function selectBrand(id) {
   // Auto-resume polling if any posts are still being scraped
   const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
   if (pendingPosts.length > 0 && !pollTimer) {
-    pendingPosts.forEach(p => scrapingPosts.add(p.id));
-    pollInitialCount = scrapingPosts.size;
+    // First pending = scraping, rest = waiting
+    scrapingPosts.add(pendingPosts[0].id);
+    for (let i = 1; i < pendingPosts.length; i++) {
+      waitingPosts.add(pendingPosts[i].id);
+    }
+    pollInitialCount = pendingPosts.length;
+    renderPostList();
     showScrapingOverlay(
-      `Scraping ${pendingPosts.length} post${pendingPosts.length > 1 ? 's' : ''}...`,
-      'Mendeteksi proses scraping yang sedang berjalan...'
+      `0/${pendingPosts.length} post selesai`,
+      `1 sedang scraping${pendingPosts.length > 1 ? `, ${pendingPosts.length - 1} menunggu` : ''}`
     );
     pollStartedAt = Date.now();
     startPolling(pendingPosts[0].id);
@@ -1662,21 +1702,32 @@ async function submitModal() {
   if (failCount > 0) parts.push(`${failCount} gagal`);
   showToast(parts.join(', '));
 
-  // Switch to brand and refresh post list
+  // Switch to brand and refresh post list so ALL new posts appear immediately
   if (brandId !== currentBrand) {
-    await selectBrand(brandId);
-  } else {
-    currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
-    renderPostList();
-    renderBrandStats();
+    // selectBrand will also auto-resume polling for pending posts
+    currentBrand = brandId;
   }
+  currentPosts = await apiFetch(`/brands/${brandId}/posts`);
+  renderBrands();
+  renderBrandStats();
 
-  // Trigger batch scrape for ONLY the newly added posts (1 browser, sequential)
+  // Mark new posts: first one = Scraping, rest = Waiting
   if (newPostIds.length > 0) {
+    scrapingPosts.add(newPostIds[0]);
+    for (let i = 1; i < newPostIds.length; i++) {
+      waitingPosts.add(newPostIds[i]);
+    }
+    pollInitialCount = newPostIds.length;
+
+    // Render list immediately so user sees all posts with correct states
+    renderPostList();
+
     showScrapingOverlay(
-      `Scraping ${newPostIds.length} post${newPostIds.length > 1 ? 's' : ''}...`,
-      'Biasanya selesai dalam 30-60 detik per post'
+      `0/${newPostIds.length} post selesai`,
+      `1 sedang scraping${newPostIds.length > 1 ? `, ${newPostIds.length - 1} menunggu` : ''}`
     );
+
+    // Trigger batch scrape (backend processes them sequentially, 1 browser)
     try {
       await apiFetch('/posts/batch-scrape', {
         method: 'POST',
@@ -1686,11 +1737,10 @@ async function submitModal() {
       console.error('Batch scrape trigger failed:', e);
     }
 
-    // Start polling to track scrape progress
-    newPostIds.forEach(pid => scrapingPosts.add(pid));
-    pollInitialCount = scrapingPosts.size;
+    // Start polling to track progress
     startPolling(newPostIds[0]);
   } else {
+    renderPostList();
     hideScrapingOverlay();
   }
 }

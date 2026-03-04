@@ -1507,7 +1507,7 @@ async function scrapeAll() {
   btn.classList.add('spinning');
 
   try {
-    const result = await apiFetch(`/brands/${currentBrand}/scrape-all`, { method: 'POST' });
+    const result = await apiFetch(`/brands/${currentBrand}/sync`, { method: 'POST' });
     const total = result.count;
     const startedAt = result.started_at;
 

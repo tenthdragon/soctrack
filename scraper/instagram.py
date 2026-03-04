@@ -419,6 +419,48 @@ class InstagramScraper:
         )
         return profile_info, discovered
 
+    # ── Batch Sync (Profile-Level) ──────────────────────
+
+    async def sync_profile_posts(
+        self, username: str, tracked_shortcodes: set[str]
+    ) -> dict[str, IGPostMetrics]:
+        """
+        Fetch profile data once and return metrics for all tracked posts.
+        This is the key optimization: 1 API call updates N posts.
+
+        Args:
+            username: Instagram username (without @)
+            tracked_shortcodes: set of shortcodes we're tracking
+
+        Returns:
+            dict mapping shortcode -> IGPostMetrics for matched posts
+        """
+        user = await self._fetch_profile_data(username)
+
+        results = {}
+
+        # Extract from timeline media
+        media = user.get("edge_owner_to_timeline_media", {})
+        for edge in media.get("edges", []):
+            node = edge.get("node", {})
+            shortcode = node.get("shortcode", "")
+            if shortcode in tracked_shortcodes:
+                results[shortcode] = self._parse_post_node(node)
+
+        # Extract from reels
+        reels = user.get("edge_felix_video_timeline", {})
+        for edge in reels.get("edges", []):
+            node = edge.get("node", {})
+            shortcode = node.get("shortcode", "")
+            if shortcode in tracked_shortcodes and shortcode not in results:
+                results[shortcode] = self._parse_post_node(node)
+
+        logger.info(
+            f"Profile sync @{username}: matched {len(results)}/{len(tracked_shortcodes)} "
+            f"tracked posts from API response"
+        )
+        return results
+
     @staticmethod
     def _extract_shortcode(url: str) -> Optional[str]:
         """Extract shortcode from Instagram URL (/p/XXX/ or /reel/XXX/)."""
@@ -429,3 +471,15 @@ class InstagramScraper:
     def detect_instagram_url(url: str) -> bool:
         """Check if a URL is an Instagram URL."""
         return bool(re.search(r'instagram\.com/', url, re.IGNORECASE))
+
+    @staticmethod
+    def extract_username_from_url(url: str) -> Optional[str]:
+        """Extract username from an Instagram post/reel URL."""
+        # Profile URL: instagram.com/username/
+        # Post URL doesn't always contain username, but we can try
+        match = re.search(r'instagram\.com/([A-Za-z0-9_.]+)', url)
+        if match:
+            name = match.group(1)
+            if name not in ("p", "reel", "tv", "stories", "explore", "accounts", "api"):
+                return name
+        return None

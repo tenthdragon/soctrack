@@ -410,7 +410,21 @@ def scrape_all_posts(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    """Trigger scrape for ALL active posts of a brand."""
+    """Trigger scrape for ALL active posts of a brand (legacy — redirects to sync)."""
+    return sync_brand_posts(brand_id, background_tasks, db)
+
+
+@router.post("/brands/{brand_id}/sync", status_code=202)
+def sync_brand_posts(
+    brand_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Smart batch sync for all active posts of a brand.
+    Groups by platform: IG uses profile-level API, TikTok uses single browser.
+    Much faster than scraping posts individually.
+    """
     posts = (
         db.query(Post)
         .filter(Post.brand_id == brand_id, Post.is_active == True)
@@ -419,18 +433,30 @@ def scrape_all_posts(
     if not posts:
         raise HTTPException(status_code=404, detail="No active posts found for this brand")
 
-    count = 0
-    for post in posts:
-        if post.platform == "instagram":
-            background_tasks.add_task(_scrape_instagram_and_save, post.id, post.tiktok_url)
-        else:
-            background_tasks.add_task(_scrape_tiktok_and_save, post.id, post.tiktok_url)
-        count += 1
+    count = len(posts)
+    started_at = datetime.utcnow().isoformat()
+
+    async def _run_sync():
+        from scraper.batch_sync import sync_brand
+        from app.database import SessionLocal
+        sync_db = SessionLocal()
+        try:
+            result = await sync_brand(sync_db, brand_id)
+            logger.info(
+                f"Sync brand {brand_id} complete: "
+                f"{result.success} success, {result.failed} failed, {result.skipped} skipped"
+            )
+        except Exception as e:
+            logger.error(f"Sync brand {brand_id} failed: {e}")
+        finally:
+            sync_db.close()
+
+    background_tasks.add_task(_run_sync)
 
     return {
-        "message": f"Scraping started for {count} posts",
+        "message": f"Smart sync started for {count} posts",
         "count": count,
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": started_at,
     }
 
 

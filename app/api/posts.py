@@ -7,8 +7,9 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -426,7 +427,51 @@ def scrape_all_posts(
             background_tasks.add_task(_scrape_tiktok_and_save, post.id, post.tiktok_url)
         count += 1
 
-    return {"message": f"Scraping started for {count} posts", "count": count}
+    return {
+        "message": f"Scraping started for {count} posts",
+        "count": count,
+        "started_at": datetime.utcnow().isoformat(),
+    }
+
+
+@router.get("/brands/{brand_id}/scrape-progress")
+def scrape_progress(
+    brand_id: uuid.UUID,
+    since: str = Query(..., description="ISO timestamp of when scrape-all started"),
+    total: int = Query(..., description="Total posts being scraped"),
+    db: Session = Depends(get_db),
+):
+    """Check how many posts have been scraped since a given timestamp."""
+    try:
+        since_dt = datetime.fromisoformat(since)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid 'since' timestamp")
+
+    # Count scrape logs created after the start time for this brand's posts
+    post_ids = [
+        p.id for p in
+        db.query(Post).filter(Post.brand_id == brand_id, Post.is_active == True).all()
+    ]
+
+    if not post_ids:
+        return {"done": 0, "total": total, "remaining": total, "finished": True}
+
+    done_count = (
+        db.query(func.count(func.distinct(ScrapeLog.post_id)))
+        .filter(
+            ScrapeLog.post_id.in_(post_ids),
+            ScrapeLog.created_at >= since_dt,
+        )
+        .scalar()
+    )
+
+    remaining = max(0, total - done_count)
+    return {
+        "done": done_count,
+        "total": total,
+        "remaining": remaining,
+        "finished": remaining == 0,
+    }
 
 
 @router.post("/posts/add-by-account", status_code=202)

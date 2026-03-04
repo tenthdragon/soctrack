@@ -631,10 +631,14 @@ tr:hover td { background: var(--bg-tertiary); }
 
 <!-- SCRAPING OVERLAY -->
 <div class="scraping-overlay" id="scrapingOverlay">
-  <div class="spinner"></div>
-  <div>
+  <div class="spinner" id="scrapingSpinner"></div>
+  <div id="scrapingCountdown" style="display:none;font-size:28px;font-weight:700;color:var(--accent);min-width:40px;text-align:center;line-height:1"></div>
+  <div style="flex:1">
     <div style="font-weight:600" id="scrapingTitle">Scraping in progress...</div>
     <div style="font-size:11px;color:var(--text-secondary)" id="scrapingDetail">Mengambil data...</div>
+    <div id="scrapingProgressBar" style="display:none;margin-top:6px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+      <div id="scrapingProgressFill" style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s ease;width:0%"></div>
+    </div>
   </div>
 </div>
 
@@ -697,15 +701,32 @@ function showLoading(el, msg = 'Loading...') {
 let scrapingPosts = new Set(); // post IDs currently being scraped
 let pollTimer = null;
 
-function showScrapingOverlay(msg = 'Scraping in progress...', detail = 'Mengambil data...') {
+function showScrapingOverlay(msg = 'Scraping in progress...', detail = 'Mengambil data...', opts = {}) {
   const overlay = document.getElementById('scrapingOverlay');
   document.getElementById('scrapingTitle').textContent = msg;
   document.getElementById('scrapingDetail').textContent = detail;
+  // Reset countdown/progress states
+  document.getElementById('scrapingCountdown').style.display = opts.showCountdown ? 'block' : 'none';
+  document.getElementById('scrapingSpinner').style.display = opts.showCountdown ? 'none' : 'block';
+  document.getElementById('scrapingProgressBar').style.display = opts.showProgress ? 'block' : 'none';
+  document.getElementById('scrapingProgressFill').style.width = '0%';
   overlay.classList.add('show');
+}
+
+function updateScrapingProgress(done, total, remaining) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('scrapingCountdown').textContent = remaining;
+  document.getElementById('scrapingProgressFill').style.width = pct + '%';
+  document.getElementById('scrapingTitle').textContent = `${done}/${total} post selesai`;
+  document.getElementById('scrapingDetail').textContent =
+    remaining > 0 ? `${remaining} post tersisa...` : 'Menyelesaikan...';
 }
 
 function hideScrapingOverlay() {
   document.getElementById('scrapingOverlay').classList.remove('show');
+  document.getElementById('scrapingCountdown').style.display = 'none';
+  document.getElementById('scrapingSpinner').style.display = 'block';
+  document.getElementById('scrapingProgressBar').style.display = 'none';
 }
 
 let pollBusy = false; // prevent overlapping polls
@@ -1481,42 +1502,64 @@ async function scrapeAll() {
   if (!currentBrand) { showToast('Pilih brand terlebih dahulu', true); return; }
 
   const btn = document.getElementById('btnRefreshAll');
-  if (btn.classList.contains('spinning')) return; // prevent double-click
+  if (btn.classList.contains('spinning')) return;
 
   btn.classList.add('spinning');
 
   try {
     const result = await apiFetch(`/brands/${currentBrand}/scrape-all`, { method: 'POST' });
     const total = result.count;
-    showScrapingOverlay(`Scraping ${total} posts...`, 'Scraping berjalan di background...');
+    const startedAt = result.started_at;
 
-    // For re-scrape, we don't track individual posts (they already have titles).
-    // Instead, simple periodic refresh until timeout.
-    let elapsed = 0;
-    const refreshInterval = setInterval(async () => {
-      elapsed += 10;
+    showScrapingOverlay(`0/${total} post selesai`, `${total} post tersisa...`, {
+      showCountdown: true,
+      showProgress: true,
+    });
+    document.getElementById('scrapingCountdown').textContent = total;
+
+    // Poll progress endpoint
+    let lastDone = 0;
+    const progressInterval = setInterval(async () => {
       try {
-        currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
-        renderPostList();
-        renderBrandStats();
-        document.getElementById('scrapingDetail').textContent =
-          `Memperbarui data... (${elapsed}s)`;
-      } catch (e) { console.error(e); }
-    }, 10000);
+        const progress = await apiFetch(
+          `/brands/${currentBrand}/scrape-progress?since=${encodeURIComponent(startedAt)}&total=${total}`
+        );
 
-    // Auto-stop after proportional time (30s per post, min 30s, max 10min)
-    const timeout = Math.min(Math.max(total * 30000, 30000), 600000);
+        updateScrapingProgress(progress.done, progress.total, progress.remaining);
+
+        // Refresh post list when new posts finish
+        if (progress.done > lastDone) {
+          lastDone = progress.done;
+          currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
+          renderPostList();
+          renderBrandStats();
+        }
+
+        if (progress.finished) {
+          clearInterval(progressInterval);
+          btn.classList.remove('spinning');
+          hideScrapingOverlay();
+          // Final refresh
+          currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
+          renderPostList();
+          renderBrandStats();
+          showToast(`Scraping selesai! ${progress.done} post diperbarui.`);
+        }
+      } catch (e) { console.error('Progress poll error:', e); }
+    }, 4000);
+
+    // Safety timeout: 60s per post, min 2min, max 15min
+    const timeout = Math.min(Math.max(total * 60000, 120000), 900000);
     setTimeout(() => {
-      clearInterval(refreshInterval);
+      clearInterval(progressInterval);
       btn.classList.remove('spinning');
       hideScrapingOverlay();
-      // Final refresh
       apiFetch(`/brands/${currentBrand}/posts`).then(posts => {
         currentPosts = posts;
         renderPostList();
         renderBrandStats();
-        showToast(`Scraping selesai! ${total} post diperbarui.`);
       }).catch(() => {});
+      showToast(`Scraping timeout. Beberapa post mungkin masih berjalan.`, true);
     }, timeout);
 
   } catch (e) {

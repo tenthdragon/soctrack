@@ -442,23 +442,32 @@ def batch_scrape_posts(
     Used by frontend after bulk URL submission — much more efficient than
     triggering individual scrapes (which each launch their own browser).
     """
-    posts = db.query(Post).filter(Post.id.in_(data.post_ids), Post.is_active == True).all()
-    if not posts:
+    # Validate post_ids exist (quick check with request session)
+    count = db.query(Post).filter(Post.id.in_(data.post_ids), Post.is_active == True).count()
+    if count == 0:
         raise HTTPException(status_code=404, detail="No matching posts found")
 
-    tiktok_posts = [p for p in posts if p.platform == "tiktok"]
-    ig_posts = [p for p in posts if p.platform == "instagram"]
+    # Pass only IDs to background task — it will re-query with its own session
+    post_ids = [str(pid) for pid in data.post_ids]
 
     async def _run_batch():
         from scraper.batch_sync import _sync_tiktok_posts, _sync_instagram_posts, SyncResult
         from app.database import SessionLocal
         batch_db = SessionLocal()
-        result = SyncResult(total=len(posts))
         try:
+            # Re-query posts in THIS session so changes get committed properly
+            posts = batch_db.query(Post).filter(
+                Post.id.in_(post_ids), Post.is_active == True
+            ).all()
+            result = SyncResult(total=len(posts))
+
+            tiktok_posts = [p for p in posts if p.platform == "tiktok"]
+            ig_posts = [p for p in posts if p.platform == "instagram"]
+
             if ig_posts:
                 await _sync_instagram_posts(batch_db, ig_posts, result)
             if tiktok_posts:
-                await _sync_tiktok_posts(batch_db, tiktok_posts, result)
+                await _sync_tiktok_posts(batch_db, tiktok_posts, result, quick=True)
             logger.info(
                 f"Batch scrape complete: {result.success} success, "
                 f"{result.failed} failed out of {len(posts)}"

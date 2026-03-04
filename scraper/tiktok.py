@@ -134,7 +134,7 @@ class TikTokScraper:
 
         try:
             await page.goto(url, timeout=30000, wait_until="domcontentloaded")
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(1500)  # SSR data is in initial HTML, no need to wait long
 
             data = await self._extract_embedded_data(page)
             if not data:

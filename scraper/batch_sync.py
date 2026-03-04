@@ -227,8 +227,13 @@ async def _sync_instagram_posts(db: Session, posts: list, result: SyncResult, on
         await scraper.stop()
 
 
-async def _sync_tiktok_posts(db: Session, posts: list, result: SyncResult, on_progress=None):
-    """Sync all TikTok posts using a single browser session."""
+async def _sync_tiktok_posts(db: Session, posts: list, result: SyncResult, on_progress=None, quick=False):
+    """Sync all TikTok posts using a single browser session.
+
+    Args:
+        quick: If True, use minimal delays (for user-initiated scraping).
+               If False, use longer delays (for nightly cron to avoid rate-limits).
+    """
     from scraper.tiktok import TikTokScraper
     from scraper.anti_detect import random_delay
 
@@ -278,9 +283,12 @@ async def _sync_tiktok_posts(db: Session, posts: list, result: SyncResult, on_pr
             if on_progress:
                 on_progress(result.done, result.total)
 
-            # Short delay between TikTok posts (5-15s, much less than nightly 30-90s)
+            # Delay between posts to avoid rate-limiting
             if i < len(posts) - 1:
-                await random_delay(5, 15)
+                if quick:
+                    await random_delay(2, 4)   # User is waiting — minimal delay
+                else:
+                    await random_delay(5, 15)  # Nightly cron — safer delay
 
     finally:
         await scraper.stop()

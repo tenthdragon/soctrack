@@ -348,6 +348,45 @@ tr:hover td { background: var(--bg-tertiary); }
 .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
 
+/* ===== SCRAPING ANIMATION ===== */
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.post-row.scraping {
+  position: relative;
+  overflow: hidden;
+}
+.post-row.scraping::after {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(139,92,246,0.08), transparent);
+  animation: shimmer 1.8s infinite;
+}
+@keyframes shimmer { to { left: 100%; } }
+.scraping-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 10px; font-size: 10px;
+  background: rgba(139,92,246,0.15); color: var(--accent-light);
+  animation: pulse 1.5s infinite;
+}
+.scraping-badge svg {
+  width: 12px; height: 12px; animation: spin 1s linear infinite;
+}
+.scraping-overlay {
+  position: fixed; bottom: 24px; left: 24px; z-index: 200;
+  background: var(--bg-card); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 14px 20px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 4px 20px rgba(139,92,246,0.3);
+  font-size: 13px; color: var(--text-primary);
+  transform: translateY(100px); opacity: 0; transition: all .3s;
+}
+.scraping-overlay.show { transform: translateY(0); opacity: 1; }
+.scraping-overlay .spinner {
+  width: 20px; height: 20px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 /* ===== EMPTY STATE ===== */
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; color: var(--text-muted); }
 .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
@@ -551,6 +590,15 @@ tr:hover td { background: var(--bg-tertiary); }
   </div>
 </div>
 
+<!-- SCRAPING OVERLAY -->
+<div class="scraping-overlay" id="scrapingOverlay">
+  <div class="spinner"></div>
+  <div>
+    <div style="font-weight:600" id="scrapingTitle">Scraping in progress...</div>
+    <div style="font-size:11px;color:var(--text-secondary)" id="scrapingDetail">Mengambil data dari TikTok</div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -604,6 +652,64 @@ function showToast(msg, isError = false) {
 
 function showLoading(el, msg = 'Loading...') {
   if (el) el.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+}
+
+// ===== SCRAPING STATE =====
+let scrapingPosts = new Set(); // post IDs currently being scraped
+let pollTimer = null;
+
+function showScrapingOverlay(msg = 'Scraping in progress...', detail = 'Mengambil data dari TikTok') {
+  const overlay = document.getElementById('scrapingOverlay');
+  document.getElementById('scrapingTitle').textContent = msg;
+  document.getElementById('scrapingDetail').textContent = detail;
+  overlay.classList.add('show');
+}
+
+function hideScrapingOverlay() {
+  document.getElementById('scrapingOverlay').classList.remove('show');
+}
+
+function startPolling(postId) {
+  scrapingPosts.add(postId);
+  showScrapingOverlay('Scraping in progress...', 'Biasanya selesai dalam 30-60 detik');
+
+  // Poll every 5 seconds to check if scraping is done
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const freshPosts = await apiFetch(`/brands/${currentBrand}/posts`);
+      const updated = freshPosts.find(p => p.id === postId);
+
+      if (updated && updated.title && updated.title !== '') {
+        // Scraping completed — title is filled
+        scrapingPosts.delete(postId);
+        currentPosts = freshPosts;
+        renderPostList();
+        renderBrandStats();
+        selectPost(postId);
+
+        if (scrapingPosts.size === 0) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          hideScrapingOverlay();
+          showToast('Scraping selesai! Data berhasil diambil.');
+        }
+      }
+    } catch (e) {
+      console.error('Poll error:', e);
+    }
+  }, 5000);
+
+  // Auto-stop polling after 2 minutes
+  setTimeout(() => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      scrapingPosts.clear();
+      hideScrapingOverlay();
+      showToast('Scraping timeout. Coba refresh halaman.', true);
+    }
+  }, 120000);
 }
 
 // ===== RENDER: BRANDS SIDEBAR =====
@@ -684,17 +790,22 @@ function renderPostList() {
     return;
   }
 
-  container.innerHTML = currentPosts.map(p => `
-    <div class="post-row ${currentPost === p.id ? 'active' : ''}" onclick="selectPost('${p.id}')">
+  container.innerHTML = currentPosts.map(p => {
+    const isScraping = scrapingPosts.has(p.id) || (!p.title && p.tiktok_video_id === 'pending');
+    return `
+    <div class="post-row ${currentPost === p.id ? 'active' : ''} ${isScraping ? 'scraping' : ''}" onclick="selectPost('${p.id}')">
       <input type="checkbox" class="post-checkbox" ${selectedCompare.has(p.id) ? 'checked' : ''}
         onclick="event.stopPropagation(); toggleCompare('${p.id}', this.checked)">
-      <div class="post-thumb">▶</div>
+      <div class="post-thumb">${isScraping ? '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>' : '▶'}</div>
       <div class="post-info">
-        <div class="post-title">${p.title || 'Untitled (scraping...)'}</div>
-        <div class="post-meta">${(p.posted_at || p.tracking_since || '').slice(0, 10)} · via ${p.source}</div>
+        <div class="post-title">${p.title || (isScraping ? 'Mengambil data...' : 'Untitled')}</div>
+        <div class="post-meta">
+          ${(p.posted_at || p.tracking_since || '').slice(0, 10)} · via ${p.source}
+          ${isScraping ? '<span class="scraping-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Scraping</span>' : ''}
+        </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // ===== RENDER: POST DETAIL =====
@@ -1065,13 +1176,18 @@ async function submitModal() {
     }
 
     closeModal();
-    // Reload current brand posts
+    // Reload current brand posts and start polling for scrape results
     if (currentBrand) {
       setTimeout(async () => {
         currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
         renderPostList();
-        renderBrandStats();
-      }, 2000); // Wait a bit for scraper to start
+        // Find the newly added post (latest one) and start polling
+        if (currentPosts.length > 0) {
+          const newest = currentPosts[currentPosts.length - 1];
+          startPolling(newest.id);
+          selectPost(newest.id);
+        }
+      }, 1500);
     }
   } catch (e) {
     showToast(e.message, true);
@@ -1081,9 +1197,8 @@ async function submitModal() {
 async function scrapeNow(postId) {
   try {
     await apiFetch(`/posts/${postId}/scrape`, { method: 'POST' });
-    showToast('Scraping dimulai... Refresh dalam 30 detik.');
-    // Auto-refresh after delay
-    setTimeout(() => selectPost(postId), 35000);
+    startPolling(postId);
+    renderPostList();
   } catch (e) {
     showToast('Gagal memulai scrape: ' + e.message, true);
   }

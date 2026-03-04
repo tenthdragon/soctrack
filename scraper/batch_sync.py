@@ -10,6 +10,7 @@ This replaces the old approach of launching 1 browser per post.
 
 import re
 import uuid
+import asyncio
 import logging
 from datetime import datetime
 from collections import defaultdict
@@ -240,7 +241,10 @@ async def _sync_tiktok_posts(db: Session, posts: list, result: SyncResult, on_pr
             logger.info(f"[TikTok {i+1}/{len(posts)}] {post.tiktok_url}")
 
             try:
-                metrics = await scraper.scrape_post(post.tiktok_url)
+                metrics = await asyncio.wait_for(
+                    scraper.scrape_post(post.tiktok_url),
+                    timeout=60  # 60 second max per post
+                )
                 _upsert_snapshot(db, post.id, metrics.views, metrics.likes, metrics.comments, metrics.shares)
 
                 if not post.title and metrics.title:
@@ -251,6 +255,15 @@ async def _sync_tiktok_posts(db: Session, posts: list, result: SyncResult, on_pr
                 duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
                 db.add(ScrapeLog(post_id=post.id, status="success", duration_ms=duration_ms))
                 result.success += 1
+
+            except asyncio.TimeoutError:
+                duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                db.add(ScrapeLog(
+                    post_id=post.id, status="failed",
+                    error_message="Timeout after 60s", duration_ms=duration_ms,
+                ))
+                result.failed += 1
+                logger.warning(f"  Timeout after 60s, skipping")
 
             except Exception as e:
                 duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)

@@ -836,7 +836,8 @@ tr:hover td { background: var(--bg-tertiary); }
 
 <script>
 // ===== API CLIENT =====
-const API = '/api';
+const BASE_PATH = window.location.pathname.replace(/\/$/, '').replace(/\/index\.html$/, '') || '';
+const API = BASE_PATH + '/api';
 let currentUser = null; // { id, email, full_name, role }
 
 async function apiFetch(path, opts = {}) {

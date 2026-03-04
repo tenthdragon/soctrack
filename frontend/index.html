@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SocTrack — TikTok Performance Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-primary: #0f0f13;
+  --bg-secondary: #1a1a24;
+  --bg-tertiary: #23233a;
+  --bg-card: #1e1e30;
+  --border: #2a2a42;
+  --text-primary: #f0f0f5;
+  --text-secondary: #9090b0;
+  --text-muted: #606080;
+  --accent: #8B5CF6;
+  --accent-light: #a78bfa;
+  --accent-dark: #7c3aed;
+  --green: #22c55e;
+  --green-bg: rgba(34,197,94,0.12);
+  --red: #ef4444;
+  --red-bg: rgba(239,68,68,0.12);
+  --blue: #3b82f6;
+  --pink: #ec4899;
+  --orange: #f97316;
+  --tiktok: #ff0050;
+  --sidebar-w: 220px;
+  --postlist-w: 380px;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); height: 100vh; overflow: hidden; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ===== APP LAYOUT ===== */
+.app { display: flex; height: 100vh; }
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: var(--bg-secondary); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.sidebar-logo svg { width: 28px; height: 28px; }
+.sidebar-logo h1 { font-size: 18px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.sidebar-business { font-size: 11px; color: var(--text-muted); padding-left: 38px; }
+
+/* Nav */
+.sidebar-nav { padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px;
+  color: var(--text-secondary); transition: all .15s;
+}
+.nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.nav-item.active { background: var(--accent); color: #fff; }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-divider { height: 1px; background: var(--border); margin: 8px 12px; }
+.nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 8px 12px 4px; }
+
+/* Brands */
+.brand-list { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
+.brand-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px;
+  color: var(--text-secondary); transition: all .15s;
+}
+.brand-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.brand-item.active { background: rgba(139,92,246,0.15); color: var(--accent-light); }
+.brand-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.brand-emoji { font-size: 16px; flex-shrink: 0; }
+.brand-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-badge {
+  font-size: 9px; padding: 1px 5px; border-radius: 3px;
+  text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;
+}
+.badge-own { background: var(--green-bg); color: var(--green); }
+.badge-comp { background: var(--red-bg); color: var(--red); }
+
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+.btn-add-brand {
+  width: 100%; padding: 8px; border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); background: transparent;
+  color: var(--text-secondary); font-size: 12px; cursor: pointer;
+  transition: all .15s;
+}
+.btn-add-brand:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===== MAIN CONTENT ===== */
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Top Bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+.topbar-title { font-size: 15px; font-weight: 600; }
+.topbar-actions { display: flex; gap: 8px; }
+.btn {
+  padding: 7px 14px; border-radius: var(--radius-sm); font-size: 12px;
+  font-weight: 500; cursor: pointer; border: none; transition: all .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-outline { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost { background: transparent; color: var(--text-secondary); border: none; }
+.btn-ghost:hover { color: var(--text-primary); }
+.btn-tiktok { background: var(--tiktok); color: #fff; }
+.btn-tiktok:hover { background: #e0004a; }
+.btn svg { width: 14px; height: 14px; }
+
+/* ===== PAGE: DASHBOARD ===== */
+.page { display: none; flex: 1; overflow: hidden; }
+.page.active { display: flex; }
+
+/* Dashboard 2-panel */
+.dashboard-page { display: flex; flex: 1; overflow: hidden; }
+
+/* Post List Panel */
+.post-list-panel {
+  width: var(--postlist-w); min-width: var(--postlist-w);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg-secondary);
+}
+.brand-stats { padding: 16px; border-bottom: 1px solid var(--border); }
+.brand-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat-mini {
+  background: var(--bg-tertiary); border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.stat-mini-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-mini-value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+.stat-mini-delta { font-size: 11px; margin-top: 2px; }
+.delta-up { color: var(--green); }
+.delta-down { color: var(--red); }
+
+.post-list-filter { padding: 8px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; }
+.filter-chip {
+  padding: 4px 10px; border-radius: 12px; font-size: 11px;
+  background: var(--bg-tertiary); color: var(--text-secondary);
+  cursor: pointer; border: 1px solid transparent; transition: all .15s;
+}
+.filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-chip:hover:not(.active) { border-color: var(--border); }
+
+.post-list-scroll { flex: 1; overflow-y: auto; }
+.post-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border-bottom: 1px solid var(--border); cursor: pointer; transition: all .15s;
+}
+.post-row:hover { background: var(--bg-tertiary); }
+.post-row.active { background: rgba(139,92,246,0.1); border-left: 3px solid var(--accent); }
+.post-checkbox { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.post-thumb {
+  width: 40px; height: 50px; border-radius: 4px;
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--border));
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--text-muted);
+}
+.post-info { flex: 1; min-width: 0; }
+.post-title { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.post-meta { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.post-metrics-mini { text-align: right; flex-shrink: 0; }
+.post-views { font-size: 13px; font-weight: 600; }
+.post-delta-mini { font-size: 10px; }
+.post-sparkline { width: 50px; height: 20px; }
+
+/* Detail Panel */
+.detail-panel {
+  flex: 1; overflow-y: auto; padding: 24px;
+  background: var(--bg-primary);
+}
+.detail-header { margin-bottom: 20px; }
+.detail-platform { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--tiktok); background: rgba(255,0,80,0.1); padding: 3px 10px; border-radius: 12px; margin-bottom: 10px; }
+.detail-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.detail-url { font-size: 11px; color: var(--text-muted); }
+.detail-date { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.stat-card-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.stat-card-icon svg { width: 16px; height: 16px; }
+.stat-card-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-card-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.stat-card-delta { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.chart-box-title { font-size: 12px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); }
+.chart-container { height: 180px; position: relative; }
+
+.snapshot-table-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.snapshot-table-header { padding: 14px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; padding: 10px 16px; color: var(--text-muted); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--bg-tertiary); }
+
+/* ===== PAGE: DISCOVERY ===== */
+.discovery-page { flex-direction: column; padding: 24px; overflow-y: auto; }
+.discovery-search-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+}
+.discovery-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.discovery-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+.search-row { display: flex; gap: 10px; }
+.search-input {
+  flex: 1; padding: 10px 16px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-tertiary);
+  color: var(--text-primary); font-size: 14px; outline: none;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-muted); }
+
+.discovery-tags { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.tag {
+  padding: 5px 12px; border-radius: 14px; font-size: 11px;
+  background: var(--bg-tertiary); color: var(--text-secondary);
+  cursor: pointer; transition: all .15s;
+}
+.tag:hover { background: var(--accent); color: #fff; }
+
+.discovery-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.discovery-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; transition: all .2s;
+}
+.discovery-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.discovery-card-thumb {
+  height: 160px; background: linear-gradient(135deg, var(--bg-tertiary), var(--border));
+  display: flex; align-items: center; justify-content: center; font-size: 40px;
+  position: relative;
+}
+.discovery-card-views {
+  position: absolute; bottom: 8px; right: 8px;
+  background: rgba(0,0,0,0.7); padding: 3px 8px; border-radius: 4px;
+  font-size: 12px; font-weight: 600;
+}
+.discovery-card-body { padding: 14px; }
+.discovery-card-title { font-size: 13px; font-weight: 500; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.discovery-card-creator { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+.discovery-card-stats { display: flex; gap: 12px; font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; }
+.discovery-card-stats span { display: flex; align-items: center; gap: 4px; }
+.btn-track {
+  width: 100%; padding: 8px; border-radius: var(--radius-sm); font-size: 12px;
+  font-weight: 600; cursor: pointer; border: 1px solid var(--accent);
+  background: transparent; color: var(--accent); transition: all .15s;
+}
+.btn-track:hover { background: var(--accent); color: #fff; }
+.btn-track.tracked { background: var(--green); border-color: var(--green); color: #fff; cursor: default; }
+
+/* ===== PAGE: COMPARE ===== */
+.compare-page { flex-direction: column; padding: 24px; overflow-y: auto; }
+.compare-header { margin-bottom: 20px; }
+.compare-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.compare-header p { font-size: 13px; color: var(--text-secondary); }
+.compare-selector { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+.compare-chip {
+  padding: 6px 14px; border-radius: 16px; font-size: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-secondary); cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.compare-chip.selected { border-color: var(--accent); color: var(--accent); background: rgba(139,92,246,0.1); }
+.compare-chip:hover:not(.selected) { border-color: var(--text-muted); }
+
+.compare-grid { display: grid; gap: 20px; }
+.compare-grid-2 { grid-template-columns: 1fr 1fr; }
+.compare-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.compare-col {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.compare-col-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.compare-col-brand { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+.compare-stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.compare-stat-label { color: var(--text-secondary); }
+.compare-stat-value { font-weight: 600; }
+.compare-chart-box { margin-top: 16px; }
+.compare-chart-container { height: 150px; position: relative; }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 100;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 12px; width: 520px; max-height: 80vh;
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 15px; font-weight: 600; }
+.modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; }
+.modal-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.modal-tab {
+  flex: 1; padding: 10px; text-align: center; font-size: 12px;
+  color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all .15s;
+}
+.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.modal-tab:hover:not(.active) { color: var(--text-primary); }
+.modal-body { padding: 20px; overflow-y: auto; }
+.modal-tab-content { display: none; }
+.modal-tab-content.active { display: block; }
+
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.form-input {
+  width: 100%; padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-tertiary);
+  color: var(--text-primary); font-size: 13px; outline: none;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-select {
+  width: 100%; padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-tertiary);
+  color: var(--text-primary); font-size: 13px; outline: none;
+  appearance: none;
+}
+.form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ===== EMPTY STATE ===== */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; color: var(--text-muted); }
+.empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { font-size: 13px; }
+
+/* ===== TOAST ===== */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 200;
+  background: var(--green); color: #fff; padding: 12px 20px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+  transform: translateY(100px); opacity: 0; transition: all .3s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* Compare floating bar */
+.compare-bar {
+  display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: #fff; padding: 10px 20px;
+  border-radius: 20px; font-size: 13px; font-weight: 500;
+  z-index: 50; cursor: pointer; box-shadow: 0 4px 20px rgba(139,92,246,0.4);
+  transition: all .2s;
+}
+.compare-bar:hover { background: var(--accent-dark); }
+.compare-bar.show { display: flex; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="url(#g1)" stroke-width="2"/><path d="M10 9l8 5-8 5V9z" fill="url(#g1)"/><defs><linearGradient id="g1" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#8B5CF6"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs></svg>
+        <h1>SocTrack</h1>
+      </div>
+      <div class="sidebar-business">Army Group</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-page="discovery" onclick="switchPage('discovery')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        FYP Scanner
+      </div>
+      <div class="nav-item" data-page="compare" onclick="switchPage('compare')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Compare
+      </div>
+    </nav>
+
+    <div class="nav-divider"></div>
+    <div class="nav-label">Own Brands</div>
+    <div class="brand-list" id="brandList"></div>
+    <div class="nav-divider"></div>
+    <div class="nav-label">Competitors</div>
+    <div class="brand-list" id="competitorList"></div>
+
+    <div class="sidebar-footer">
+      <button class="btn-add-brand" onclick="openModal()">+ Tambah Brand</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title" id="topbarTitle">Dashboard — Roove</div>
+      <div class="topbar-actions">
+        <button class="btn btn-outline" onclick="openModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Tambah Post
+        </button>
+      </div>
+    </div>
+
+    <!-- PAGE: DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="dashboard-page">
+        <div class="post-list-panel">
+          <div class="brand-stats">
+            <div class="brand-stats-grid" id="brandStatsGrid"></div>
+          </div>
+          <div class="post-list-filter">
+            <span class="filter-chip active" onclick="filterPosts('all', this)">All</span>
+            <span class="filter-chip" onclick="filterPosts('views', this)">Top Views</span>
+            <span class="filter-chip" onclick="filterPosts('gains', this)">Top Gains</span>
+          </div>
+          <div class="post-list-scroll" id="postListScroll"></div>
+        </div>
+        <div class="detail-panel" id="detailPanel"></div>
+      </div>
+    </div>
+
+    <!-- PAGE: DISCOVERY -->
+    <div class="page discovery-page" id="page-discovery">
+      <div class="discovery-search-box">
+        <div class="detail-platform" style="margin-bottom: 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.88-2.88A2.89 2.89 0 019.5 12.4v-3.5a6.37 6.37 0 00-6.38 6.38 6.37 6.37 0 006.38 6.38 6.37 6.37 0 006.38-6.38V9.42a8.29 8.29 0 004.84 1.55V7.52a4.84 4.84 0 01-1.13-.83z"/></svg>
+          TikTok Discovery
+        </div>
+        <div class="discovery-title">FYP Scanner</div>
+        <div class="discovery-subtitle">Cari konten trending di niche kamu. Temukan kompetitor baru dan konten viral.</div>
+        <div class="search-row">
+          <input type="text" class="search-input" id="discoverySearch" placeholder="Masukkan keyword atau hashtag..." value="collagen drink">
+          <button class="btn btn-tiktok" onclick="runDiscovery()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            Scan FYP
+          </button>
+        </div>
+        <div class="discovery-tags">
+          <span class="tag" onclick="setDiscoveryKeyword('collagen drink')">collagen drink</span>
+          <span class="tag" onclick="setDiscoveryKeyword('minuman kolagen')">minuman kolagen</span>
+          <span class="tag" onclick="setDiscoveryKeyword('#skincareRoutine')">#skincareRoutine</span>
+          <span class="tag" onclick="setDiscoveryKeyword('skincare viral')">skincare viral</span>
+          <span class="tag" onclick="setDiscoveryKeyword('#beautyTikTok')">#beautyTikTok</span>
+        </div>
+      </div>
+      <div class="discovery-results" id="discoveryResults"></div>
+    </div>
+
+    <!-- PAGE: COMPARE -->
+    <div class="page compare-page" id="page-compare">
+      <div class="compare-header">
+        <h2>Compare Posts</h2>
+        <p>Pilih 2 atau lebih post untuk membandingkan performa side by side.</p>
+      </div>
+      <div class="compare-selector" id="compareSelector"></div>
+      <div class="compare-grid compare-grid-2" id="compareGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE FLOATING BAR -->
+<div class="compare-bar" id="compareBar" onclick="goToCompare()">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+  Compare <span id="compareCount">0</span> posts
+</div>
+
+<!-- ADD POST MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Tambah Post</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-tabs">
+      <div class="modal-tab active" onclick="switchModalTab(0, this)">By Account</div>
+      <div class="modal-tab" onclick="switchModalTab(1, this)">By Link</div>
+      <div class="modal-tab" onclick="switchModalTab(2, this)">Discovery</div>
+    </div>
+    <div class="modal-body">
+      <!-- Tab: By Account -->
+      <div class="modal-tab-content active" id="modalTab0">
+        <div class="form-group">
+          <label class="form-label">Username TikTok</label>
+          <input type="text" class="form-input" placeholder="@username" value="@roove">
+          <div class="form-hint">Sistem akan auto-discover semua post dari akun ini</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand</label>
+          <select class="form-select">
+            <option>Roove</option>
+            <option>Scalev</option>
+            <option>+ Buat Brand Baru</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipe</label>
+          <select class="form-select">
+            <option>Own Brand</option>
+            <option>Competitor</option>
+          </select>
+        </div>
+      </div>
+      <!-- Tab: By Link -->
+      <div class="modal-tab-content" id="modalTab1">
+        <div class="form-group">
+          <label class="form-label">URL Post TikTok</label>
+          <input type="text" class="form-input" placeholder="https://tiktok.com/@roove/video/123456">
+          <div class="form-hint">Post otomatis di-assign ke brand berdasarkan username</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand (opsional)</label>
+          <select class="form-select">
+            <option>Auto-detect dari URL</option>
+            <option>Roove</option>
+            <option>Scalev</option>
+          </select>
+        </div>
+      </div>
+      <!-- Tab: Discovery -->
+      <div class="modal-tab-content" id="modalTab2">
+        <div class="form-group">
+          <label class="form-label">Keyword / Hashtag</label>
+          <input type="text" class="form-input" placeholder='contoh: "collagen drink", "#skincare"'>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Results</label>
+          <select class="form-select">
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </div>
+        <div class="form-hint">Hasil akan muncul di halaman FYP Scanner. Kamu bisa pilih post mana yang ingin di-track.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="submitModal()">Mulai Tracking</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== DUMMY DATA =====
+const brands = [
+  { id: 'b1', name: 'Roove', username: '@roove', emoji: '🧴', color: '#8B5CF6', isCompetitor: false },
+  { id: 'b2', name: 'Scalev', username: '@scalev', emoji: '🚀', color: '#3b82f6', isCompetitor: false },
+  { id: 'b3', name: 'Skintific', username: '@skintific_id', emoji: '✨', color: '#ec4899', isCompetitor: true },
+  { id: 'b4', name: 'Somethinc', username: '@somethinc', emoji: '🌿', color: '#22c55e', isCompetitor: true },
+  { id: 'b5', name: 'Wardah', username: '@wardahbeauty', emoji: '🌸', color: '#f97316', isCompetitor: true },
+];
+
+function genSnapshots(days=14) {
+  const snaps = [];
+  for (let i = days; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    snaps.push({ date: d.toISOString().slice(0,10), views: 0, likes: 0, comments: 0, shares: 0 });
+  }
+  let v = rand(5000, 50000), l = rand(200, 5000), c = rand(20, 500), s = rand(10, 200);
+  snaps.forEach(sn => {
+    v += rand(100, 8000); l += rand(10, 600); c += rand(2, 80); s += rand(1, 30);
+    sn.views = v; sn.likes = l; sn.comments = c; sn.shares = s;
+  });
+  return snaps;
+}
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+const postTitles = [
+  'Rahasia kulit glowing tanpa skincare mahal ✨', 'Review jujur setelah 30 hari pemakaian', 'Collagen drink terbaik 2026? 🤔',
+  'Routine pagi anti ribet untuk working mom', 'Perbedaan collagen murah vs mahal', 'Cara pakai yang BENAR (banyak yang salah!)',
+  'Before-after 2 minggu pemakaian 😱', 'GRWM skincare routine malam', 'Unboxing produk terbaru!',
+  'Challenge: 7 hari tanpa skincare', 'Tips hemat tapi kulit tetap sehat', 'Rekomendasi dokter kulit tentang collagen',
+  'Honest review dari dokter estetik', 'Vibes pagi: skincare routine aesthetic ☀️', 'Produk lokal yang underrated banget!',
+  'Ingredient yang WAJIB ada di skincare kamu', 'POV: kamu akhirnya nemu holy grail', 'Skincare haul under 100k!',
+  'Tutorial makeup natural 5 menit', 'Night routine yang bikin kulit kenyal'
+];
+
+const posts = {};
+brands.forEach(b => {
+  posts[b.id] = [];
+  const count = rand(5, 8);
+  for (let i = 0; i < count; i++) {
+    const snaps = genSnapshots();
+    const lastSnap = snaps[snaps.length - 1];
+    const prevSnap = snaps[snaps.length - 2];
+    posts[b.id].push({
+      id: `${b.id}-p${i}`,
+      title: postTitles[rand(0, postTitles.length - 1)],
+      url: `https://tiktok.com/${b.username}/video/${rand(7000000000000000000, 7999999999999999999)}`,
+      postedAt: new Date(2026, rand(0,2), rand(1,28)).toISOString().slice(0,10),
+      trackingSince: new Date(2026, rand(0,1), rand(1,28)).toISOString().slice(0,10),
+      source: ['account', 'link', 'discovery'][rand(0,2)],
+      snapshots: snaps,
+      current: { views: lastSnap.views, likes: lastSnap.likes, comments: lastSnap.comments, shares: lastSnap.shares },
+      delta: {
+        views: lastSnap.views - prevSnap.views,
+        likes: lastSnap.likes - prevSnap.likes,
+        comments: lastSnap.comments - prevSnap.comments,
+        shares: lastSnap.shares - prevSnap.shares,
+      }
+    });
+  }
+  posts[b.id].sort((a, b) => b.delta.views - a.delta.views);
+});
+
+const discoveryData = [
+  { title: 'Collagen drink ini viral banget di TikTok! Review jujur...', creator: '@beautyguru_id', views: 2450000, likes: 89000, comments: 3200, shares: 12000 },
+  { title: 'Dokter kulit bongkar mitos collagen drink 😱', creator: '@dr.skincare', views: 1870000, likes: 72000, comments: 5100, shares: 8900 },
+  { title: 'Cara aku minum collagen biar hasilnya maksimal', creator: '@healthylife.id', views: 1230000, likes: 45000, comments: 1800, shares: 5600 },
+  { title: '30 hari challenge collagen drink, hasilnya...', creator: '@skincarediary', views: 980000, likes: 38000, comments: 2100, shares: 4200 },
+  { title: 'Perbandingan 5 brand collagen drink terpopuler', creator: '@reviewjujur', views: 870000, likes: 32000, comments: 4500, shares: 7800 },
+  { title: 'Apakah collagen drink benar efektif? Sains jawab!', creator: '@sciencegirl', views: 650000, likes: 28000, comments: 1900, shares: 3400 },
+  { title: 'POV: kulit kamu setelah rutin minum collagen ✨', creator: '@glowup.queen', views: 540000, likes: 21000, comments: 890, shares: 2100 },
+  { title: 'Collagen drink murah vs mahal, beda nggak sih?', creator: '@budgetbeauty', views: 420000, likes: 18000, comments: 2300, shares: 3100 },
+];
+
+// ===== STATE =====
+let currentBrand = 'b1';
+let currentPost = null;
+let selectedCompare = new Set();
+let charts = {};
+
+// ===== RENDER =====
+function formatNum(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
+}
+function formatDelta(n) {
+  const prefix = n >= 0 ? '+' : '';
+  return prefix + formatNum(n);
+}
+
+function renderBrands() {
+  const ownList = document.getElementById('brandList');
+  const compList = document.getElementById('competitorList');
+  ownList.innerHTML = ''; compList.innerHTML = '';
+  brands.forEach(b => {
+    const el = document.createElement('div');
+    el.className = `brand-item ${b.id === currentBrand ? 'active' : ''}`;
+    el.onclick = () => selectBrand(b.id);
+    el.innerHTML = `
+      <span class="brand-emoji">${b.emoji}</span>
+      <span class="brand-name">${b.name}</span>
+      <span class="brand-badge ${b.isCompetitor ? 'badge-comp' : 'badge-own'}">${b.isCompetitor ? 'COMP' : 'OWN'}</span>
+    `;
+    (b.isCompetitor ? compList : ownList).appendChild(el);
+  });
+}
+
+function renderBrandStats() {
+  const bp = posts[currentBrand];
+  const totals = { views: 0, likes: 0, comments: 0, shares: 0 };
+  const deltas = { views: 0, likes: 0, comments: 0, shares: 0 };
+  bp.forEach(p => {
+    totals.views += p.current.views; totals.likes += p.current.likes;
+    totals.comments += p.current.comments; totals.shares += p.current.shares;
+    deltas.views += p.delta.views; deltas.likes += p.delta.likes;
+    deltas.comments += p.delta.comments; deltas.shares += p.delta.shares;
+  });
+  document.getElementById('brandStatsGrid').innerHTML = [
+    { label: 'Views', value: totals.views, delta: deltas.views },
+    { label: 'Likes', value: totals.likes, delta: deltas.likes },
+    { label: 'Comments', value: totals.comments, delta: deltas.comments },
+    { label: 'Shares', value: totals.shares, delta: deltas.shares },
+  ].map(s => `
+    <div class="stat-mini">
+      <div class="stat-mini-label">${s.label}</div>
+      <div class="stat-mini-value">${formatNum(s.value)}</div>
+      <div class="stat-mini-delta ${s.delta >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(s.delta)} today</div>
+    </div>
+  `).join('');
+}
+
+function renderPostList() {
+  const bp = posts[currentBrand];
+  const container = document.getElementById('postListScroll');
+  container.innerHTML = bp.map((p, i) => `
+    <div class="post-row ${currentPost === p.id ? 'active' : ''}" onclick="selectPost('${p.id}')">
+      <input type="checkbox" class="post-checkbox" ${selectedCompare.has(p.id) ? 'checked' : ''}
+        onclick="event.stopPropagation(); toggleCompare('${p.id}', this.checked)">
+      <div class="post-thumb">▶</div>
+      <div class="post-info">
+        <div class="post-title">${p.title}</div>
+        <div class="post-meta">${p.postedAt} · via ${p.source}</div>
+      </div>
+      <div class="post-metrics-mini">
+        <div class="post-views">${formatNum(p.current.views)}</div>
+        <div class="post-delta-mini ${p.delta.views >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(p.delta.views)}</div>
+      </div>
+    </div>
+  `).join('');
+  if (!currentPost && bp.length > 0) selectPost(bp[0].id);
+}
+
+function renderDetail(postId) {
+  const bp = posts[currentBrand];
+  const p = bp.find(x => x.id === postId);
+  if (!p) return;
+  const brand = brands.find(b => b.id === currentBrand);
+  const panel = document.getElementById('detailPanel');
+
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-platform">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.88-2.88A2.89 2.89 0 019.5 12.4v-3.5a6.37 6.37 0 00-6.38 6.38 6.37 6.37 0 006.38 6.38 6.37 6.37 0 006.38-6.38V9.42a8.29 8.29 0 004.84 1.55V7.52a4.84 4.84 0 01-1.13-.83z"/></svg>
+        TikTok
+      </div>
+      <div class="detail-title">${p.title}</div>
+      <div class="detail-url">${p.url}</div>
+      <div class="detail-date">Tracking since ${p.trackingSince} · Posted ${p.postedAt}</div>
+    </div>
+
+    <div class="stat-cards">
+      ${[
+        { label: 'Views', value: p.current.views, delta: p.delta.views, color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
+        { label: 'Likes', value: p.current.likes, delta: p.delta.likes, color: '#ef4444', bg: 'rgba(239,68,68,0.15)', icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' },
+        { label: 'Comments', value: p.current.comments, delta: p.delta.comments, color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' },
+        { label: 'Shares', value: p.current.shares, delta: p.delta.shares, color: '#22c55e', bg: 'rgba(34,197,94,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>' },
+      ].map(s => `
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:${s.bg}; color:${s.color}">${s.icon}</div>
+          <div class="stat-card-label">${s.label}</div>
+          <div class="stat-card-value">${formatNum(s.value)}</div>
+          <div class="stat-card-delta ${s.delta >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(s.delta)} hari ini</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-box">
+        <div class="chart-box-title">Daily Views Gain</div>
+        <div class="chart-container"><canvas id="chartViews"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Daily Likes Gain</div>
+        <div class="chart-container"><canvas id="chartLikes"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Daily Comments Gain</div>
+        <div class="chart-container"><canvas id="chartComments"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-box-title">Daily Shares Gain</div>
+        <div class="chart-container"><canvas id="chartShares"></canvas></div>
+      </div>
+    </div>
+
+    <div class="snapshot-table-box">
+      <div class="snapshot-table-header">Daily Snapshots</div>
+      <table>
+        <thead><tr><th>Date</th><th>Views</th><th>Δ Views</th><th>Likes</th><th>Δ Likes</th><th>Comments</th><th>Shares</th></tr></thead>
+        <tbody>
+          ${p.snapshots.slice().reverse().map((s, i, arr) => {
+            const prev = arr[i + 1] || s;
+            const dv = s.views - prev.views;
+            const dl = s.likes - prev.likes;
+            return `<tr>
+              <td>${s.date}</td>
+              <td>${formatNum(s.views)}</td>
+              <td class="${dv >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dv)}</td>
+              <td>${formatNum(s.likes)}</td>
+              <td class="${dl >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dl)}</td>
+              <td>${formatNum(s.comments)}</td>
+              <td>${formatNum(s.shares)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  renderCharts(p);
+}
+
+function renderCharts(p) {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+  const labels = p.snapshots.map(s => s.date.slice(5));
+  const deltas = (key) => p.snapshots.map((s, i) => i === 0 ? 0 : s[key] - p.snapshots[i-1][key]);
+  const opts = (color) => ({
+    type: 'bar',
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#606080', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } },
+        y: { grid: { color: 'rgba(42,42,66,0.5)' }, ticks: { color: '#606080', font: { size: 10 }, callback: v => formatNum(v) } }
+      }
+    }
+  });
+
+  [['chartViews', 'views', '#8B5CF6'], ['chartLikes', 'likes', '#ef4444'],
+   ['chartComments', 'comments', '#3b82f6'], ['chartShares', 'shares', '#22c55e']].forEach(([id, key, color]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    charts[id] = new Chart(el, {
+      ...opts(color),
+      data: {
+        labels,
+        datasets: [{ data: deltas(key), backgroundColor: color + '88', borderColor: color, borderWidth: 1, borderRadius: 3 }]
+      }
+    });
+  });
+}
+
+function renderDiscovery() {
+  document.getElementById('discoveryResults').innerHTML = discoveryData.map((d, i) => `
+    <div class="discovery-card">
+      <div class="discovery-card-thumb">
+        🎬
+        <div class="discovery-card-views">${formatNum(d.views)} views</div>
+      </div>
+      <div class="discovery-card-body">
+        <div class="discovery-card-title">${d.title}</div>
+        <div class="discovery-card-creator">${d.creator}</div>
+        <div class="discovery-card-stats">
+          <span>❤️ ${formatNum(d.likes)}</span>
+          <span>💬 ${formatNum(d.comments)}</span>
+          <span>🔗 ${formatNum(d.shares)}</span>
+        </div>
+        <button class="btn-track" id="trackBtn${i}" onclick="trackDiscovery(${i})">Track This</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCompare() {
+  const selector = document.getElementById('compareSelector');
+  const allPosts = [];
+  brands.forEach(b => { posts[b.id].forEach(p => { allPosts.push({ ...p, brand: b }); }); });
+  const selected = Array.from(selectedCompare);
+
+  selector.innerHTML = allPosts.slice(0, 12).map(p => `
+    <div class="compare-chip ${selectedCompare.has(p.id) ? 'selected' : ''}" onclick="toggleCompare('${p.id}'); renderCompare();">
+      <span>${p.brand.emoji}</span>
+      <span>${p.title.slice(0, 25)}...</span>
+    </div>
+  `).join('');
+
+  const grid = document.getElementById('compareGrid');
+  const selPosts = allPosts.filter(p => selectedCompare.has(p.id));
+  if (selPosts.length < 2) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Pilih minimal 2 post untuk mulai compare.</p></div>';
+    grid.className = 'compare-grid compare-grid-2';
+    return;
+  }
+  grid.className = `compare-grid compare-grid-${Math.min(selPosts.length, 3)}`;
+  grid.innerHTML = selPosts.slice(0, 3).map((p, i) => `
+    <div class="compare-col">
+      <div class="compare-col-title">${p.title.slice(0, 40)}...</div>
+      <div class="compare-col-brand">${p.brand.emoji} ${p.brand.name} · ${p.brand.username}</div>
+      ${[
+        { label: 'Views', value: p.current.views, delta: p.delta.views },
+        { label: 'Likes', value: p.current.likes, delta: p.delta.likes },
+        { label: 'Comments', value: p.current.comments, delta: p.delta.comments },
+        { label: 'Shares', value: p.current.shares, delta: p.delta.shares },
+      ].map(s => `
+        <div class="compare-stat-row">
+          <span class="compare-stat-label">${s.label}</span>
+          <span class="compare-stat-value">${formatNum(s.value)} <small class="${s.delta >= 0 ? 'delta-up' : 'delta-down'}" style="font-size:10px">${formatDelta(s.delta)}</small></span>
+        </div>
+      `).join('')}
+      <div class="compare-chart-box">
+        <div class="compare-chart-container"><canvas id="compareChart${i}"></canvas></div>
+      </div>
+    </div>
+  `).join('');
+
+  selPosts.slice(0, 3).forEach((p, i) => {
+    const el = document.getElementById(`compareChart${i}`);
+    if (!el) return;
+    const labels = p.snapshots.map(s => s.date.slice(5));
+    const data = p.snapshots.map(s => s.views);
+    new Chart(el, {
+      type: 'line',
+      data: { labels, datasets: [{ data, borderColor: p.brand.color, backgroundColor: p.brand.color + '22', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: false },
+          y: { grid: { color: 'rgba(42,42,66,0.3)' }, ticks: { color: '#606080', font: { size: 9 }, callback: v => formatNum(v) } }
+        }
+      }
+    });
+  });
+}
+
+// ===== ACTIONS =====
+function selectBrand(id) {
+  currentBrand = id;
+  currentPost = null;
+  const brand = brands.find(b => b.id === id);
+  document.getElementById('topbarTitle').textContent = `Dashboard — ${brand.name}`;
+  renderBrands(); renderBrandStats(); renderPostList();
+  switchPage('dashboard');
+}
+
+function selectPost(id) {
+  currentPost = id;
+  document.querySelectorAll('.post-row').forEach(el => el.classList.remove('active'));
+  const rows = document.querySelectorAll('.post-row');
+  const bp = posts[currentBrand];
+  const idx = bp.findIndex(p => p.id === id);
+  if (rows[idx]) rows[idx].classList.add('active');
+  renderDetail(id);
+}
+
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  if (page === 'discovery') renderDiscovery();
+  if (page === 'compare') renderCompare();
+}
+
+function filterPosts(type, el) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const bp = posts[currentBrand];
+  if (type === 'views') bp.sort((a, b) => b.current.views - a.current.views);
+  else if (type === 'gains') bp.sort((a, b) => b.delta.views - a.delta.views);
+  renderPostList();
+}
+
+function toggleCompare(id, checked) {
+  if (checked === undefined) {
+    selectedCompare.has(id) ? selectedCompare.delete(id) : selectedCompare.add(id);
+  } else {
+    checked ? selectedCompare.add(id) : selectedCompare.delete(id);
+  }
+  const bar = document.getElementById('compareBar');
+  const count = selectedCompare.size;
+  document.getElementById('compareCount').textContent = count;
+  bar.classList.toggle('show', count >= 2);
+  renderPostList();
+}
+
+function goToCompare() {
+  switchPage('compare');
+}
+
+function openModal() { document.getElementById('modalOverlay').classList.add('active'); }
+function closeModal(e) { if (!e || e.target === e.currentTarget) document.getElementById('modalOverlay').classList.remove('active'); }
+function switchModalTab(i, el) {
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(`modalTab${i}`).classList.add('active');
+}
+function submitModal() {
+  closeModal();
+  showToast('Post berhasil ditambahkan ke tracking!');
+}
+
+function trackDiscovery(i) {
+  const btn = document.getElementById(`trackBtn${i}`);
+  btn.textContent = '✓ Tracked';
+  btn.classList.add('tracked');
+  showToast('Post ditambahkan ke tracking!');
+}
+
+function runDiscovery() { showToast('Scanning FYP... Hasil akan muncul dalam beberapa detik.'); }
+function setDiscoveryKeyword(kw) { document.getElementById('discoverySearch').value = kw; }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== INIT =====
+renderBrands();
+renderBrandStats();
+renderPostList();
+</script>
+</body>
+</html>

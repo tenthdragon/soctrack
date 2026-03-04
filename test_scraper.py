@@ -1,20 +1,21 @@
 """
-SocTrack Scraper Test v3
-Approach: Use TikTok's internal web API endpoints via Playwright.
-TikTok renders video feeds via JS, but their API returns raw JSON.
+SocTrack Scraper Test v4
+Approach:
+1. Get video list via HTTP request to TikTok API
+2. Scrape individual video page for metrics (embedded JSON)
 """
 
 import asyncio
 import json
+import re
 from playwright.async_api import async_playwright
 
 
 async def test_scrape():
     print("=" * 60)
-    print("SocTrack Scraper Test v3 (API Approach)")
+    print("SocTrack Scraper Test v4 (Video Page Approach)")
     print("=" * 60)
 
-    print("\n[1] Launching Chromium...")
     pw = await async_playwright().start()
     browser = await pw.chromium.launch(
         headless=True,
@@ -24,160 +25,218 @@ async def test_scrape():
             "--disable-dev-shm-usage",
         ],
     )
-
     context = await browser.new_context(
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         viewport={"width": 1920, "height": 1080},
         locale="id-ID",
         timezone_id="Asia/Jakarta",
     )
-
     await context.add_init_script("""
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
         window.chrome = { runtime: {} };
     """)
 
-    # ── Approach: Visit profile, intercept API calls ─────
-    print("\n[2] Intercepting TikTok API calls from profile page...")
-
-    api_responses = []
-
+    # ── Step 1: Get video list via API ───────────────────
+    print("\n[1] Fetching video list for @roove.co.id...")
     page = await context.new_page()
 
-    # Intercept network requests to capture API data
-    async def handle_response(response):
-        url = response.url
-        if "/api/post/item_list" in url or "/api/user/detail" in url:
+    video_ids = []
+
+    # Method A: Intercept XHR while browsing profile
+    captured_items = []
+
+    async def capture_api(response):
+        if "api/post/item_list" in response.url:
             try:
-                body = await response.json()
-                api_responses.append({"url": url, "data": body})
-                print(f"    ✓ Captured API: {url[:80]}...")
+                data = await response.json()
+                items = data.get("itemList", [])
+                captured_items.extend(items)
+                print(f"    ✓ Captured {len(items)} videos from API")
             except:
                 pass
 
-    page.on("response", handle_response)
+    page.on("response", capture_api)
 
-    try:
-        profile_url = "https://www.tiktok.com/@roove.co.id"
-        print(f"    Opening {profile_url}")
-        await page.goto(profile_url, timeout=30000, wait_until="domcontentloaded")
-        await page.wait_for_timeout(5000)
+    await page.goto("https://www.tiktok.com/@roove.co.id", timeout=30000, wait_until="domcontentloaded")
+    await page.wait_for_timeout(5000)
 
-        # Scroll to trigger lazy loading of video list API
-        print("    Scrolling to trigger video list API...")
-        for i in range(3):
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(3000)
-            print(f"    Scroll {i+1} done, captured {len(api_responses)} API calls")
+    # Scroll aggressively to trigger API calls
+    for i in range(8):
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        await page.wait_for_timeout(2000)
+        if captured_items:
+            print(f"    Scroll {i+1}: total {len(captured_items)} videos captured")
+            break
+        print(f"    Scroll {i+1}: waiting...")
 
-    except Exception as e:
-        print(f"    ✗ Navigation failed: {e}")
+    await page.close()
 
-    # ── Parse captured API responses ─────────────────────
-    print(f"\n[3] Analyzing {len(api_responses)} captured API responses...")
+    # Method B: If API intercept didn't work, try direct API call
+    if not captured_items:
+        print("\n    API intercept didn't capture videos.")
+        print("    Trying direct page scrape for video links...")
 
-    user_info = None
-    video_list = []
+        page2 = await context.new_page()
+        await page2.goto("https://www.tiktok.com/@roove.co.id", timeout=30000, wait_until="domcontentloaded")
+        await page2.wait_for_timeout(5000)
 
-    for resp in api_responses:
-        data = resp["data"]
-        if "userInfo" in data:
-            user_info = data["userInfo"]
-        if "itemList" in data:
-            video_list.extend(data["itemList"])
+        # Try to find video links from the page HTML source
+        html_content = await page2.content()
 
-    if user_info:
-        user = user_info.get("user", {})
-        stats = user_info.get("stats", {})
-        print(f"\n    ✓ User Info:")
-        print(f"      Username: @{user.get('uniqueId', 'N/A')}")
-        print(f"      Nickname: {user.get('nickname', 'N/A')}")
-        print(f"      Followers: {stats.get('followerCount', 0):,}")
-        print(f"      Videos: {stats.get('videoCount', 0)}")
-        print(f"      Total Likes: {stats.get('heartCount', 0):,}")
+        # Extract video IDs from HTML using regex
+        video_id_matches = re.findall(r'"id":"(\d{18,20})"', html_content)
+        video_ids = list(set(video_id_matches))
 
-    if video_list:
-        print(f"\n    ✓ Videos found: {len(video_list)}")
-        print(f"\n    First 5 videos:")
-        for i, video in enumerate(video_list[:5]):
-            vid_stats = video.get("stats", {})
-            desc = video.get("desc", "No title")[:60]
-            vid_id = video.get("id", "N/A")
-            print(f"\n      [{i+1}] {desc}")
-            print(f"          ID: {vid_id}")
-            print(f"          Views: {vid_stats.get('playCount', 0):,}")
-            print(f"          Likes: {vid_stats.get('diggCount', 0):,}")
-            print(f"          Comments: {vid_stats.get('commentCount', 0):,}")
-            print(f"          Shares: {vid_stats.get('shareCount', 0):,}")
-            print(f"          URL: https://www.tiktok.com/@roove.co.id/video/{vid_id}")
+        if not video_ids:
+            # Try another pattern
+            video_id_matches = re.findall(r'/video/(\d{18,20})', html_content)
+            video_ids = list(set(video_id_matches))
+
+        print(f"    Found {len(video_ids)} video IDs from HTML source")
+        await page2.close()
     else:
-        print("\n    ✗ No videos captured from API")
+        video_ids = [item.get("id") for item in captured_items if item.get("id")]
+        # Print stats from captured items
+        print(f"\n    Videos from API with stats:")
+        for i, item in enumerate(captured_items[:5]):
+            stats = item.get("stats", {})
+            desc = item.get("desc", "No title")[:50]
+            print(f"      [{i+1}] {desc}")
+            print(f"          Views: {stats.get('playCount', 0):,}")
+            print(f"          Likes: {stats.get('diggCount', 0):,}")
+            print(f"          Comments: {stats.get('commentCount', 0):,}")
+            print(f"          Shares: {stats.get('shareCount', 0):,}")
 
-    # ── Fallback: Parse __UNIVERSAL_DATA_FOR_REHYDRATION__ ──
-    if not video_list:
-        print("\n[4] Trying fallback: extract data from page source...")
+    # ── Step 2: Scrape individual video page ─────────────
+    if video_ids:
+        test_vid_id = video_ids[0]
+        test_url = f"https://www.tiktok.com/@roove.co.id/video/{test_vid_id}"
+        print(f"\n[2] Scraping individual video page...")
+        print(f"    URL: {test_url}")
+
+        page3 = await context.new_page()
         try:
-            data_str = await page.evaluate("""
+            await page3.goto(test_url, timeout=30000, wait_until="domcontentloaded")
+            await page3.wait_for_timeout(5000)
+
+            # Extract embedded JSON data
+            data_str = await page3.evaluate("""
                 () => {
-                    // TikTok embeds data in a script tag for SSR
-                    const scripts = document.querySelectorAll('script#__UNIVERSAL_DATA_FOR_REHYDRATION__');
-                    if (scripts.length > 0) return scripts[0].textContent;
-
-                    // Alternative: SIGI_STATE
-                    const sigi = document.querySelectorAll('script#SIGI_STATE');
-                    if (sigi.length > 0) return sigi[0].textContent;
-
-                    // Try all script tags
-                    for (const s of document.querySelectorAll('script')) {
-                        if (s.textContent.includes('"ItemModule"') || s.textContent.includes('"itemList"')) {
-                            return s.textContent;
-                        }
-                    }
-                    return null;
+                    const el = document.querySelector('script#__UNIVERSAL_DATA_FOR_REHYDRATION__');
+                    return el ? el.textContent : null;
                 }
             """)
 
             if data_str:
-                print(f"    Found embedded data ({len(data_str)} chars)")
                 data = json.loads(data_str)
+                scope = data.get("__DEFAULT_SCOPE__", {})
 
-                # Try to extract from __DEFAULT_SCOPE__
-                default_scope = data.get("__DEFAULT_SCOPE__", {})
+                # Try video detail
+                video_detail = scope.get("webapp.video-detail", {})
+                if video_detail:
+                    item_info = video_detail.get("itemInfo", {})
+                    item_struct = item_info.get("itemStruct", {})
 
-                # User detail
-                user_detail = default_scope.get("webapp.user-detail", {})
-                if user_detail:
-                    ui = user_detail.get("userInfo", {})
-                    user = ui.get("user", {})
-                    stats = ui.get("stats", {})
-                    print(f"\n    ✓ User Info (from page data):")
-                    print(f"      Username: @{user.get('uniqueId', 'N/A')}")
-                    print(f"      Followers: {stats.get('followerCount', 0):,}")
-                    print(f"      Videos: {stats.get('videoCount', 0)}")
+                    if item_struct:
+                        stats = item_struct.get("stats", {})
+                        desc = item_struct.get("desc", "No title")[:80]
+                        author = item_struct.get("author", {})
 
-                # Video list
-                video_post = default_scope.get("webapp.video-detail", {})
-                user_post = default_scope.get("webapp.user-detail", {})
+                        print(f"\n    ✓ VIDEO METRICS EXTRACTED!")
+                        print(f"      Title: {desc}")
+                        print(f"      Author: @{author.get('uniqueId', 'N/A')}")
+                        print(f"      Views: {stats.get('playCount', 0):,}")
+                        print(f"      Likes: {stats.get('diggCount', 0):,}")
+                        print(f"      Comments: {stats.get('commentCount', 0):,}")
+                        print(f"      Shares: {stats.get('shareCount', 0):,}")
+                        print(f"      Saves: {stats.get('collectCount', 0):,}")
+                        print(f"\n    ✅ SCRAPER WORKS!")
+                    else:
+                        print("    itemStruct not found")
+                        print(f"    video-detail keys: {list(video_detail.keys())}")
+                else:
+                    print("    webapp.video-detail not found")
+                    print(f"    Available keys: {list(scope.keys())}")
 
-                # Try ItemModule pattern
-                item_module = data.get("ItemModule", {})
-                if item_module:
-                    print(f"\n    ✓ Videos from ItemModule: {len(item_module)}")
-                    for vid_id, video in list(item_module.items())[:5]:
-                        print(f"      [{vid_id}] Views: {video.get('stats', {}).get('playCount', 'N/A')}")
-
-                # Save for analysis
-                with open("debug_data.json", "w") as f:
-                    json.dump(data, f, indent=2, default=str)
-                print("\n    Data saved: debug_data.json")
+                    # Save for debugging
+                    with open("debug_video.json", "w") as f:
+                        json.dump(data, f, indent=2, default=str)
+                    print("    Debug data saved: debug_video.json")
             else:
-                print("    No embedded data found")
+                print("    No embedded data found on video page")
+                # Try direct DOM extraction as fallback
+                print("    Trying DOM extraction...")
+                for sel_name, sel in [
+                    ("likes", '[data-e2e="like-count"]'),
+                    ("comments", '[data-e2e="comment-count"]'),
+                    ("shares", '[data-e2e="share-count"]'),
+                ]:
+                    el = await page3.query_selector(sel)
+                    if el:
+                        text = await el.inner_text()
+                        print(f"      {sel_name}: {text}")
 
         except Exception as e:
-            print(f"    ✗ Fallback failed: {e}")
+            print(f"    ✗ Failed: {e}")
+        finally:
+            await page3.screenshot(path="debug_video.png")
+            await page3.close()
+    else:
+        print("\n[2] Skipped — no video IDs found")
+        print("    Trying one known video URL directly...")
 
-    await page.screenshot(path="debug_profile.png", full_page=False)
-    print("\n[5] Screenshot saved: debug_profile.png")
+        # Hardcode fallback: try visiting any roove video
+        page4 = await context.new_page()
+        try:
+            # Use oembed to find a valid video URL
+            await page4.goto(
+                "https://www.tiktok.com/oembed?url=https://www.tiktok.com/@roove.co.id",
+                timeout=15000,
+            )
+            oembed_text = await page4.evaluate("document.body.innerText")
+            oembed_data = json.loads(oembed_text)
+            print(f"    oembed title: {oembed_data.get('title', 'N/A')}")
+            print(f"    oembed author: {oembed_data.get('author_name', 'N/A')}")
+
+            # oembed gives us the embed HTML which has a video URL
+            embed_html = oembed_data.get("html", "")
+            vid_match = re.search(r'/video/(\d+)', embed_html)
+            if vid_match:
+                found_vid_id = vid_match.group(1)
+                print(f"    Found video ID from oembed: {found_vid_id}")
+                print(f"    Now scraping that video...")
+
+                await page4.goto(
+                    f"https://www.tiktok.com/@roove.co.id/video/{found_vid_id}",
+                    timeout=30000,
+                    wait_until="domcontentloaded",
+                )
+                await page4.wait_for_timeout(5000)
+
+                data_str = await page4.evaluate("""
+                    () => {
+                        const el = document.querySelector('script#__UNIVERSAL_DATA_FOR_REHYDRATION__');
+                        return el ? el.textContent : null;
+                    }
+                """)
+                if data_str:
+                    data = json.loads(data_str)
+                    scope = data.get("__DEFAULT_SCOPE__", {})
+                    vd = scope.get("webapp.video-detail", {})
+                    item = vd.get("itemInfo", {}).get("itemStruct", {})
+                    if item:
+                        stats = item.get("stats", {})
+                        print(f"\n    ✓ VIDEO METRICS EXTRACTED!")
+                        print(f"      Title: {item.get('desc', 'N/A')[:80]}")
+                        print(f"      Views: {stats.get('playCount', 0):,}")
+                        print(f"      Likes: {stats.get('diggCount', 0):,}")
+                        print(f"      Comments: {stats.get('commentCount', 0):,}")
+                        print(f"      Shares: {stats.get('shareCount', 0):,}")
+                        print(f"\n    ✅ SCRAPER WORKS!")
+        except Exception as e:
+            print(f"    ✗ Fallback failed: {e}")
+        finally:
+            await page4.close()
 
     await browser.close()
     await pw.stop()

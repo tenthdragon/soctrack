@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SocTrack — Ad Insights Wireframe</title>
+<style>
+:root {
+  --bg-primary: #0f0f13;
+  --bg-secondary: #1a1a24;
+  --bg-tertiary: #23233a;
+  --bg-card: #1e1e30;
+  --border: #2a2a42;
+  --text-primary: #f0f0f5;
+  --text-secondary: #9090b0;
+  --text-muted: #606080;
+  --accent: #8B5CF6;
+  --accent-light: #a78bfa;
+  --green: #22c55e;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --orange: #f97316;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary); color: var(--text-primary);
+  padding: 20px; max-width: 800px; margin: 0 auto;
+}
+h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--text-secondary); }
+.section-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text-muted); margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.dot-organic { background: var(--accent); }
+.dot-paid { background: var(--orange); }
+
+/* Stat cards */
+.stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.stat-card-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px; font-size: 16px;
+}
+.stat-card-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-card-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.stat-card-delta { font-size: 12px; margin-top: 4px; color: var(--green); }
+
+/* Paid cards have orange accent */
+.stat-card.paid { border-color: rgba(249,115,22,0.25); }
+.stat-card.paid .stat-card-icon { background: rgba(249,115,22,0.15); }
+
+/* ROI highlight */
+.roi-banner {
+  background: linear-gradient(135deg, rgba(249,115,22,0.1), rgba(139,92,246,0.1));
+  border: 1px solid rgba(249,115,22,0.25);
+  border-radius: var(--radius); padding: 16px 20px;
+  margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;
+}
+.roi-label { font-size: 13px; color: var(--text-secondary); }
+.roi-value { font-size: 13px; color: var(--orange); }
+.roi-main { font-size: 28px; font-weight: 700; color: var(--orange); }
+
+/* Table */
+.table-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;
+}
+.table-header {
+  padding: 14px 16px; font-size: 13px; font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; padding: 10px 16px; color: var(--text-muted);
+  font-weight: 500; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+}
+td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.delta-up { color: var(--green); }
+
+/* Header mock */
+.detail-header { margin-bottom: 24px; }
+.detail-platform {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #ff0050; background: rgba(255,0,80,0.1);
+  padding: 3px 10px; border-radius: 12px; margin-bottom: 10px;
+}
+.detail-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.detail-url { font-size: 11px; color: var(--text-muted); }
+
+/* Divider */
+.divider { height: 1px; background: var(--border); margin: 28px 0; }
+
+/* Note */
+.note {
+  background: var(--bg-tertiary); border: 1px dashed var(--border);
+  border-radius: var(--radius); padding: 16px; margin-top: 20px;
+  font-size: 12px; color: var(--text-secondary); line-height: 1.6;
+}
+.note-title { font-weight: 600; color: var(--text-primary); margin-bottom: 6px; font-size: 13px; }
+
+/* Responsive */
+@media (max-width: 767px) {
+  body { padding: 12px; }
+  .stat-cards { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 12px; }
+  .stat-card-value { font-size: 18px; }
+  .roi-banner { flex-direction: column; gap: 8px; align-items: flex-start; }
+  table { font-size: 11px; }
+  th, td { padding: 8px 10px; }
+}
+
+.wireframe-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-tertiary); border: 1px solid var(--border);
+  padding: 8px 14px; border-radius: 20px; font-size: 11px;
+  color: var(--text-muted); margin-bottom: 24px;
+}
+</style>
+</head>
+<body>
+
+<div class="wireframe-badge">📐 WIREFRAME — Detail Panel Post dengan Ad Insights</div>
+
+<!-- Post Header (existing) -->
+<div class="detail-header">
+  <div class="detail-platform">♪ TikTok</div>
+  <div class="detail-title">siapa yg belum checkout promo birthday?? #roovecollage...</div>
+  <div class="detail-url">https://www.tiktok.com/@roove.co.id/video/76132...</div>
+</div>
+
+<!-- SECTION: Organic Performance -->
+<div class="section-label">
+  <span class="dot dot-organic"></span>
+  Performa Organik
+</div>
+<div class="stat-cards">
+  <div class="stat-card">
+    <div class="stat-card-icon" style="background:rgba(139,92,246,0.15)">👁</div>
+    <div class="stat-card-label">Views</div>
+    <div class="stat-card-value">6.6K</div>
+    <div class="stat-card-delta">+126 hari ini</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon" style="background:rgba(239,68,68,0.15)">❤️</div>
+    <div class="stat-card-label">Likes</div>
+    <div class="stat-card-value">21</div>
+    <div class="stat-card-delta">+1 hari ini</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon" style="background:rgba(59,130,246,0.15)">💬</div>
+    <div class="stat-card-label">Comments</div>
+    <div class="stat-card-value">1</div>
+    <div class="stat-card-delta">+0 hari ini</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon" style="background:rgba(34,197,94,0.15)">🔗</div>
+    <div class="stat-card-label">Shares</div>
+    <div class="stat-card-value">4</div>
+    <div class="stat-card-delta">+0 hari ini</div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SECTION: Paid Performance (NEW) -->
+<div class="section-label">
+  <span class="dot dot-paid"></span>
+  Performa Iklan (Meta Ads)
+</div>
+<div class="stat-cards">
+  <div class="stat-card paid">
+    <div class="stat-card-icon" style="color:var(--orange)">📣</div>
+    <div class="stat-card-label">Impressions</div>
+    <div class="stat-card-value" style="color:var(--orange)">52.3K</div>
+    <div class="stat-card-delta">+8.2K hari ini</div>
+  </div>
+  <div class="stat-card paid">
+    <div class="stat-card-icon" style="color:var(--orange)">👥</div>
+    <div class="stat-card-label">Reach</div>
+    <div class="stat-card-value" style="color:var(--orange)">38.1K</div>
+    <div class="stat-card-delta">+5.4K hari ini</div>
+  </div>
+  <div class="stat-card paid">
+    <div class="stat-card-icon" style="color:var(--orange)">👆</div>
+    <div class="stat-card-label">Clicks</div>
+    <div class="stat-card-value" style="color:var(--orange)">1.2K</div>
+    <div class="stat-card-delta">+180 hari ini</div>
+  </div>
+  <div class="stat-card paid">
+    <div class="stat-card-icon" style="color:var(--orange)">💰</div>
+    <div class="stat-card-label">Spend</div>
+    <div class="stat-card-value" style="color:var(--orange)">Rp 850K</div>
+    <div class="stat-card-delta" style="color:var(--text-secondary)">+Rp 120K hari ini</div>
+  </div>
+</div>
+
+<!-- ROI Summary Banner -->
+<div class="roi-banner">
+  <div>
+    <div class="roi-label">Cost per Result</div>
+    <div style="display:flex; gap: 24px; margin-top: 4px;">
+      <div>
+        <span style="font-size:11px;color:var(--text-muted)">CPM</span>
+        <span style="font-size:14px;font-weight:600;margin-left:4px;color:var(--text-primary)">Rp 16.3K</span>
+      </div>
+      <div>
+        <span style="font-size:11px;color:var(--text-muted)">CPC</span>
+        <span style="font-size:14px;font-weight:600;margin-left:4px;color:var(--text-primary)">Rp 708</span>
+      </div>
+      <div>
+        <span style="font-size:11px;color:var(--text-muted)">CTR</span>
+        <span style="font-size:14px;font-weight:600;margin-left:4px;color:var(--text-primary)">2.3%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Charts placeholder -->
+<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;background:var(--bg-card);border:1px dashed var(--border);border-radius:var(--radius);margin-bottom:24px;">
+  📊 Charts area — Organic views + Ad impressions overlay chart (bisa lihat korelasi boost → organic growth)
+</div>
+
+<!-- Snapshot Table (enhanced) -->
+<div class="table-box">
+  <div class="table-header">
+    <span>Snapshots (3)</span>
+    <span style="font-size:11px;color:var(--text-muted)">Organic + Ads</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Views</th>
+        <th>Δ Views</th>
+        <th>Likes</th>
+        <th style="color:var(--orange)">Ad Impr</th>
+        <th style="color:var(--orange)">Spend</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-03-04</td>
+        <td>6,612</td>
+        <td class="delta-up">+126</td>
+        <td>21</td>
+        <td style="color:var(--orange)">52.3K</td>
+        <td style="color:var(--orange)">Rp 850K</td>
+      </tr>
+      <tr>
+        <td>2026-03-03</td>
+        <td>6,486</td>
+        <td class="delta-up">+2,341</td>
+        <td>20</td>
+        <td style="color:var(--orange)">44.1K</td>
+        <td style="color:var(--orange)">Rp 730K</td>
+      </tr>
+      <tr>
+        <td>2026-03-02</td>
+        <td>4,145</td>
+        <td class="delta-up">+4,145</td>
+        <td>14</td>
+        <td style="color:var(--text-muted)">—</td>
+        <td style="color:var(--text-muted)">—</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Notes -->
+<div class="note">
+  <div class="note-title">📝 Catatan Wireframe</div>
+  <p><strong>Warna:</strong> Organik = ungu (existing), Paid/Ads = oranye — supaya langsung terlihat bedanya.</p>
+  <p style="margin-top:6px"><strong>Section divider:</strong> Garis + label "Performa Organik" dan "Performa Iklan" memisahkan dua konteks tanpa perlu tab.</p>
+  <p style="margin-top:6px"><strong>ROI banner:</strong> CPM, CPC, CTR ditampilkan ringkas di satu baris — metrik turunan yang paling sering dilihat.</p>
+  <p style="margin-top:6px"><strong>Tabel snapshot:</strong> Kolom ad (oranye) ditambahkan di samping organik. Hari tanpa iklan menampilkan "—".</p>
+  <p style="margin-top:6px"><strong>Post tanpa iklan:</strong> Section "Performa Iklan" tidak muncul sama sekali — detail panel tetap bersih seperti sekarang.</p>
+</div>
+
+</body>
+</html>

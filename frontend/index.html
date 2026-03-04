@@ -497,61 +497,48 @@ tr:hover td { background: var(--bg-tertiary); }
       <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
     <div class="modal-tabs">
-      <div class="modal-tab active" onclick="switchModalTab(0, this)">By Account</div>
-      <div class="modal-tab" onclick="switchModalTab(1, this)">By Link</div>
+      <div class="modal-tab active" onclick="switchModalTab(0, this)">By Link</div>
+      <div class="modal-tab" onclick="switchModalTab(1, this)">By Account</div>
       <div class="modal-tab" onclick="switchModalTab(2, this)">Discovery</div>
     </div>
     <div class="modal-body">
-      <!-- Tab: By Account -->
+      <!-- Tab: By Link -->
       <div class="modal-tab-content active" id="modalTab0">
         <div class="form-group">
+          <label class="form-label">URL Post TikTok</label>
+          <input type="text" class="form-input" id="inputPostUrl" placeholder="https://tiktok.com/@roove/video/123456 atau vt.tiktok.com/...">
+          <div class="form-hint">Mendukung URL lengkap dan short URL (vt.tiktok.com). Post otomatis di-assign ke brand berdasarkan username.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand (opsional)</label>
+          <select class="form-select" id="selectLinkBrand">
+            <option value="">Auto-detect dari URL</option>
+          </select>
+        </div>
+      </div>
+      <!-- Tab: By Account -->
+      <div class="modal-tab-content" id="modalTab1">
+        <div class="form-group">
           <label class="form-label">Username TikTok</label>
-          <input type="text" class="form-input" placeholder="@username" value="@roove">
+          <input type="text" class="form-input" id="inputAccountUsername" placeholder="@username">
           <div class="form-hint">Sistem akan auto-discover semua post dari akun ini</div>
         </div>
         <div class="form-group">
           <label class="form-label">Brand</label>
-          <select class="form-select">
-            <option>Roove</option>
-            <option>Scalev</option>
-            <option>+ Buat Brand Baru</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tipe</label>
-          <select class="form-select">
-            <option>Own Brand</option>
-            <option>Competitor</option>
-          </select>
-        </div>
-      </div>
-      <!-- Tab: By Link -->
-      <div class="modal-tab-content" id="modalTab1">
-        <div class="form-group">
-          <label class="form-label">URL Post TikTok</label>
-          <input type="text" class="form-input" placeholder="https://tiktok.com/@roove/video/123456">
-          <div class="form-hint">Post otomatis di-assign ke brand berdasarkan username</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Brand (opsional)</label>
-          <select class="form-select">
-            <option>Auto-detect dari URL</option>
-            <option>Roove</option>
-            <option>Scalev</option>
-          </select>
+          <select class="form-select" id="selectAccountBrand"></select>
         </div>
       </div>
       <!-- Tab: Discovery -->
       <div class="modal-tab-content" id="modalTab2">
         <div class="form-group">
           <label class="form-label">Keyword / Hashtag</label>
-          <input type="text" class="form-input" placeholder='contoh: "collagen drink", "#skincare"'>
+          <input type="text" class="form-input" id="inputDiscoveryKeyword" placeholder='contoh: "collagen drink", "#skincare"'>
         </div>
         <div class="form-group">
           <label class="form-label">Max Results</label>
-          <select class="form-select">
-            <option>50</option>
-            <option>100</option>
+          <select class="form-select" id="selectDiscoveryMax">
+            <option value="50">50</option>
+            <option value="100">100</option>
           </select>
         </div>
         <div class="form-hint">Hasil akan muncul di halaman FYP Scanner. Kamu bisa pilih post mana yang ingin di-track.</div>
@@ -568,165 +555,175 @@ tr:hover td { background: var(--bg-tertiary); }
 <div class="toast" id="toast"></div>
 
 <script>
-// ===== DUMMY DATA =====
-const brands = [
-  { id: 'b1', name: 'Roove', username: '@roove', emoji: '🧴', color: '#8B5CF6', isCompetitor: false },
-  { id: 'b2', name: 'Scalev', username: '@scalev', emoji: '🚀', color: '#3b82f6', isCompetitor: false },
-  { id: 'b3', name: 'Skintific', username: '@skintific_id', emoji: '✨', color: '#ec4899', isCompetitor: true },
-  { id: 'b4', name: 'Somethinc', username: '@somethinc', emoji: '🌿', color: '#22c55e', isCompetitor: true },
-  { id: 'b5', name: 'Wardah', username: '@wardahbeauty', emoji: '🌸', color: '#f97316', isCompetitor: true },
-];
+// ===== API CLIENT =====
+const API = '/api';
 
-function genSnapshots(days=14) {
-  const snaps = [];
-  for (let i = days; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    snaps.push({ date: d.toISOString().slice(0,10), views: 0, likes: 0, comments: 0, shares: 0 });
-  }
-  let v = rand(5000, 50000), l = rand(200, 5000), c = rand(20, 500), s = rand(10, 200);
-  snaps.forEach(sn => {
-    v += rand(100, 8000); l += rand(10, 600); c += rand(2, 80); s += rand(1, 30);
-    sn.views = v; sn.likes = l; sn.comments = c; sn.shares = s;
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
   });
-  return snaps;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  if (res.status === 204) return null;
+  return res.json();
 }
 
-function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-const postTitles = [
-  'Rahasia kulit glowing tanpa skincare mahal ✨', 'Review jujur setelah 30 hari pemakaian', 'Collagen drink terbaik 2026? 🤔',
-  'Routine pagi anti ribet untuk working mom', 'Perbedaan collagen murah vs mahal', 'Cara pakai yang BENAR (banyak yang salah!)',
-  'Before-after 2 minggu pemakaian 😱', 'GRWM skincare routine malam', 'Unboxing produk terbaru!',
-  'Challenge: 7 hari tanpa skincare', 'Tips hemat tapi kulit tetap sehat', 'Rekomendasi dokter kulit tentang collagen',
-  'Honest review dari dokter estetik', 'Vibes pagi: skincare routine aesthetic ☀️', 'Produk lokal yang underrated banget!',
-  'Ingredient yang WAJIB ada di skincare kamu', 'POV: kamu akhirnya nemu holy grail', 'Skincare haul under 100k!',
-  'Tutorial makeup natural 5 menit', 'Night routine yang bikin kulit kenyal'
-];
-
-const posts = {};
-brands.forEach(b => {
-  posts[b.id] = [];
-  const count = rand(5, 8);
-  for (let i = 0; i < count; i++) {
-    const snaps = genSnapshots();
-    const lastSnap = snaps[snaps.length - 1];
-    const prevSnap = snaps[snaps.length - 2];
-    posts[b.id].push({
-      id: `${b.id}-p${i}`,
-      title: postTitles[rand(0, postTitles.length - 1)],
-      url: `https://tiktok.com/${b.username}/video/${rand(7000000000000000000, 7999999999999999999)}`,
-      postedAt: new Date(2026, rand(0,2), rand(1,28)).toISOString().slice(0,10),
-      trackingSince: new Date(2026, rand(0,1), rand(1,28)).toISOString().slice(0,10),
-      source: ['account', 'link', 'discovery'][rand(0,2)],
-      snapshots: snaps,
-      current: { views: lastSnap.views, likes: lastSnap.likes, comments: lastSnap.comments, shares: lastSnap.shares },
-      delta: {
-        views: lastSnap.views - prevSnap.views,
-        likes: lastSnap.likes - prevSnap.likes,
-        comments: lastSnap.comments - prevSnap.comments,
-        shares: lastSnap.shares - prevSnap.shares,
-      }
-    });
-  }
-  posts[b.id].sort((a, b) => b.delta.views - a.delta.views);
-});
-
-const discoveryData = [
-  { title: 'Collagen drink ini viral banget di TikTok! Review jujur...', creator: '@beautyguru_id', views: 2450000, likes: 89000, comments: 3200, shares: 12000 },
-  { title: 'Dokter kulit bongkar mitos collagen drink 😱', creator: '@dr.skincare', views: 1870000, likes: 72000, comments: 5100, shares: 8900 },
-  { title: 'Cara aku minum collagen biar hasilnya maksimal', creator: '@healthylife.id', views: 1230000, likes: 45000, comments: 1800, shares: 5600 },
-  { title: '30 hari challenge collagen drink, hasilnya...', creator: '@skincarediary', views: 980000, likes: 38000, comments: 2100, shares: 4200 },
-  { title: 'Perbandingan 5 brand collagen drink terpopuler', creator: '@reviewjujur', views: 870000, likes: 32000, comments: 4500, shares: 7800 },
-  { title: 'Apakah collagen drink benar efektif? Sains jawab!', creator: '@sciencegirl', views: 650000, likes: 28000, comments: 1900, shares: 3400 },
-  { title: 'POV: kulit kamu setelah rutin minum collagen ✨', creator: '@glowup.queen', views: 540000, likes: 21000, comments: 890, shares: 2100 },
-  { title: 'Collagen drink murah vs mahal, beda nggak sih?', creator: '@budgetbeauty', views: 420000, likes: 18000, comments: 2300, shares: 3100 },
-];
-
 // ===== STATE =====
-let currentBrand = 'b1';
+let brands = [];
+let currentBrand = null;
 let currentPost = null;
+let currentPosts = [];
+let currentSnapshots = {};  // postId -> snapshots[]
 let selectedCompare = new Set();
 let charts = {};
+let discoveryResults = [];
 
-// ===== RENDER =====
+// ===== HELPERS =====
 function formatNum(n) {
+  if (n === undefined || n === null) return '0';
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
   return n.toString();
 }
 function formatDelta(n) {
+  if (n === undefined || n === null) return '+0';
   const prefix = n >= 0 ? '+' : '';
   return prefix + formatNum(n);
 }
 
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? 'var(--red)' : 'var(--green)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showLoading(el, msg = 'Loading...') {
+  if (el) el.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+}
+
+// ===== RENDER: BRANDS SIDEBAR =====
 function renderBrands() {
   const ownList = document.getElementById('brandList');
   const compList = document.getElementById('competitorList');
   ownList.innerHTML = ''; compList.innerHTML = '';
+
+  if (brands.length === 0) {
+    ownList.innerHTML = '<div style="padding:8px 16px;font-size:12px;color:var(--text-muted)">Belum ada brand</div>';
+    return;
+  }
+
   brands.forEach(b => {
     const el = document.createElement('div');
     el.className = `brand-item ${b.id === currentBrand ? 'active' : ''}`;
     el.onclick = () => selectBrand(b.id);
     el.innerHTML = `
-      <span class="brand-emoji">${b.emoji}</span>
+      <span class="brand-emoji">${b.logo_emoji || '📦'}</span>
       <span class="brand-name">${b.name}</span>
-      <span class="brand-badge ${b.isCompetitor ? 'badge-comp' : 'badge-own'}">${b.isCompetitor ? 'COMP' : 'OWN'}</span>
+      <span class="brand-badge ${b.is_competitor ? 'badge-comp' : 'badge-own'}">${b.is_competitor ? 'COMP' : 'OWN'}</span>
     `;
-    (b.isCompetitor ? compList : ownList).appendChild(el);
+    (b.is_competitor ? compList : ownList).appendChild(el);
   });
+
+  // Update modal brand selects
+  updateBrandSelects();
 }
 
-function renderBrandStats() {
-  const bp = posts[currentBrand];
-  const totals = { views: 0, likes: 0, comments: 0, shares: 0 };
-  const deltas = { views: 0, likes: 0, comments: 0, shares: 0 };
-  bp.forEach(p => {
-    totals.views += p.current.views; totals.likes += p.current.likes;
-    totals.comments += p.current.comments; totals.shares += p.current.shares;
-    deltas.views += p.delta.views; deltas.likes += p.delta.likes;
-    deltas.comments += p.delta.comments; deltas.shares += p.delta.shares;
-  });
-  document.getElementById('brandStatsGrid').innerHTML = [
-    { label: 'Views', value: totals.views, delta: deltas.views },
-    { label: 'Likes', value: totals.likes, delta: deltas.likes },
-    { label: 'Comments', value: totals.comments, delta: deltas.comments },
-    { label: 'Shares', value: totals.shares, delta: deltas.shares },
-  ].map(s => `
-    <div class="stat-mini">
-      <div class="stat-mini-label">${s.label}</div>
-      <div class="stat-mini-value">${formatNum(s.value)}</div>
-      <div class="stat-mini-delta ${s.delta >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(s.delta)} today</div>
-    </div>
-  `).join('');
+function updateBrandSelects() {
+  const linkSelect = document.getElementById('selectLinkBrand');
+  const acctSelect = document.getElementById('selectAccountBrand');
+  if (linkSelect) {
+    linkSelect.innerHTML = '<option value="">Auto-detect dari URL</option>' +
+      brands.map(b => `<option value="${b.id}">${b.logo_emoji || '📦'} ${b.name}</option>`).join('');
+  }
+  if (acctSelect) {
+    acctSelect.innerHTML = brands.map(b => `<option value="${b.id}">${b.logo_emoji || '📦'} ${b.name}</option>`).join('');
+  }
 }
 
+// ===== RENDER: BRAND STATS =====
+async function renderBrandStats() {
+  const grid = document.getElementById('brandStatsGrid');
+  if (!grid || !currentBrand) return;
+
+  try {
+    const stats = await apiFetch(`/brands/${currentBrand}/stats`);
+    grid.innerHTML = [
+      { label: 'Views', value: stats.total_views, delta: stats.delta_views },
+      { label: 'Likes', value: stats.total_likes, delta: stats.delta_likes },
+      { label: 'Comments', value: stats.total_comments, delta: stats.delta_comments },
+      { label: 'Shares', value: stats.total_shares, delta: stats.delta_shares },
+    ].map(s => `
+      <div class="stat-mini">
+        <div class="stat-mini-label">${s.label}</div>
+        <div class="stat-mini-value">${formatNum(s.value)}</div>
+        <div class="stat-mini-delta ${(s.delta || 0) >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(s.delta)} today</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    grid.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--text-muted)">No stats yet</div>';
+  }
+}
+
+// ===== RENDER: POST LIST =====
 function renderPostList() {
-  const bp = posts[currentBrand];
   const container = document.getElementById('postListScroll');
-  container.innerHTML = bp.map((p, i) => `
+  if (!container) return;
+
+  if (currentPosts.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+        <p>Belum ada post. Klik "Tambah Post" untuk mulai tracking.</p>
+      </div>`;
+    document.getElementById('detailPanel').innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = currentPosts.map(p => `
     <div class="post-row ${currentPost === p.id ? 'active' : ''}" onclick="selectPost('${p.id}')">
       <input type="checkbox" class="post-checkbox" ${selectedCompare.has(p.id) ? 'checked' : ''}
         onclick="event.stopPropagation(); toggleCompare('${p.id}', this.checked)">
       <div class="post-thumb">▶</div>
       <div class="post-info">
-        <div class="post-title">${p.title}</div>
-        <div class="post-meta">${p.postedAt} · via ${p.source}</div>
-      </div>
-      <div class="post-metrics-mini">
-        <div class="post-views">${formatNum(p.current.views)}</div>
-        <div class="post-delta-mini ${p.delta.views >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(p.delta.views)}</div>
+        <div class="post-title">${p.title || 'Untitled (scraping...)'}</div>
+        <div class="post-meta">${(p.posted_at || p.tracking_since || '').slice(0, 10)} · via ${p.source}</div>
       </div>
     </div>
   `).join('');
-  if (!currentPost && bp.length > 0) selectPost(bp[0].id);
 }
 
-function renderDetail(postId) {
-  const bp = posts[currentBrand];
-  const p = bp.find(x => x.id === postId);
+// ===== RENDER: POST DETAIL =====
+async function renderDetail(postId) {
+  const p = currentPosts.find(x => x.id === postId);
   if (!p) return;
   const brand = brands.find(b => b.id === currentBrand);
   const panel = document.getElementById('detailPanel');
+
+  showLoading(panel, 'Loading snapshots...');
+
+  // Fetch snapshots
+  let snapshots = [];
+  try {
+    snapshots = await apiFetch(`/posts/${postId}/snapshots`);
+    snapshots = snapshots.reverse(); // oldest first for charts
+    currentSnapshots[postId] = snapshots;
+  } catch (e) {
+    console.error('Failed to load snapshots:', e);
+  }
+
+  const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { views: 0, likes: 0, comments: 0, shares: 0 };
+  const prev = snapshots.length > 1 ? snapshots[snapshots.length - 2] : latest;
+  const delta = {
+    views: latest.views - prev.views,
+    likes: latest.likes - prev.likes,
+    comments: latest.comments - prev.comments,
+    shares: latest.shares - prev.shares,
+  };
 
   panel.innerHTML = `
     <div class="detail-header">
@@ -734,17 +731,20 @@ function renderDetail(postId) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.88-2.88A2.89 2.89 0 019.5 12.4v-3.5a6.37 6.37 0 00-6.38 6.38 6.37 6.37 0 006.38 6.38 6.37 6.37 0 006.38-6.38V9.42a8.29 8.29 0 004.84 1.55V7.52a4.84 4.84 0 01-1.13-.83z"/></svg>
         TikTok
       </div>
-      <div class="detail-title">${p.title}</div>
-      <div class="detail-url">${p.url}</div>
-      <div class="detail-date">Tracking since ${p.trackingSince} · Posted ${p.postedAt}</div>
+      <div class="detail-title">${p.title || 'Untitled'}</div>
+      <div class="detail-url"><a href="${p.tiktok_url}" target="_blank" style="color:var(--accent)">${p.tiktok_url}</a></div>
+      <div class="detail-date">Tracking since ${(p.tracking_since || '').slice(0, 10)}</div>
+      <button class="btn btn-outline" style="margin-top:8px;font-size:11px;padding:6px 12px;" onclick="scrapeNow('${p.id}')">
+        🔄 Scrape Now
+      </button>
     </div>
 
     <div class="stat-cards">
       ${[
-        { label: 'Views', value: p.current.views, delta: p.delta.views, color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
-        { label: 'Likes', value: p.current.likes, delta: p.delta.likes, color: '#ef4444', bg: 'rgba(239,68,68,0.15)', icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' },
-        { label: 'Comments', value: p.current.comments, delta: p.delta.comments, color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' },
-        { label: 'Shares', value: p.current.shares, delta: p.delta.shares, color: '#22c55e', bg: 'rgba(34,197,94,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>' },
+        { label: 'Views', value: latest.views, delta: delta.views, color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' },
+        { label: 'Likes', value: latest.likes, delta: delta.likes, color: '#ef4444', bg: 'rgba(239,68,68,0.15)', icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' },
+        { label: 'Comments', value: latest.comments, delta: delta.comments, color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' },
+        { label: 'Shares', value: latest.shares, delta: delta.shares, color: '#22c55e', bg: 'rgba(34,197,94,0.15)', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>' },
       ].map(s => `
         <div class="stat-card">
           <div class="stat-card-icon" style="background:${s.bg}; color:${s.color}">${s.icon}</div>
@@ -755,6 +755,7 @@ function renderDetail(postId) {
       `).join('')}
     </div>
 
+    ${snapshots.length > 1 ? `
     <div class="charts-grid">
       <div class="chart-box">
         <div class="chart-box-title">Daily Views Gain</div>
@@ -773,165 +774,209 @@ function renderDetail(postId) {
         <div class="chart-container"><canvas id="chartShares"></canvas></div>
       </div>
     </div>
+    ` : '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">Charts akan muncul setelah ada 2+ snapshots (scrape harian).</div>'}
 
     <div class="snapshot-table-box">
-      <div class="snapshot-table-header">Daily Snapshots</div>
+      <div class="snapshot-table-header">Snapshots (${snapshots.length})</div>
       <table>
         <thead><tr><th>Date</th><th>Views</th><th>Δ Views</th><th>Likes</th><th>Δ Likes</th><th>Comments</th><th>Shares</th></tr></thead>
         <tbody>
-          ${p.snapshots.slice().reverse().map((s, i, arr) => {
-            const prev = arr[i + 1] || s;
-            const dv = s.views - prev.views;
-            const dl = s.likes - prev.likes;
-            return `<tr>
-              <td>${s.date}</td>
-              <td>${formatNum(s.views)}</td>
-              <td class="${dv >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dv)}</td>
-              <td>${formatNum(s.likes)}</td>
-              <td class="${dl >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dl)}</td>
-              <td>${formatNum(s.comments)}</td>
-              <td>${formatNum(s.shares)}</td>
-            </tr>`;
-          }).join('')}
+          ${snapshots.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Belum ada snapshot. Klik "Scrape Now" untuk mengambil data.</td></tr>' :
+            snapshots.slice().reverse().map((s, i, arr) => {
+              const prev = arr[i + 1] || s;
+              const dv = s.views - prev.views;
+              const dl = s.likes - prev.likes;
+              const dateStr = (s.recorded_at || '').slice(0, 10);
+              return `<tr>
+                <td>${dateStr}</td>
+                <td>${formatNum(s.views)}</td>
+                <td class="${dv >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dv)}</td>
+                <td>${formatNum(s.likes)}</td>
+                <td class="${dl >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dl)}</td>
+                <td>${formatNum(s.comments)}</td>
+                <td>${formatNum(s.shares)}</td>
+              </tr>`;
+            }).join('')}
         </tbody>
       </table>
     </div>
   `;
-  renderCharts(p);
+
+  // Render charts
+  if (snapshots.length > 1) renderCharts(snapshots);
 }
 
-function renderCharts(p) {
+function renderCharts(snapshots) {
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
-  const labels = p.snapshots.map(s => s.date.slice(5));
-  const deltas = (key) => p.snapshots.map((s, i) => i === 0 ? 0 : s[key] - p.snapshots[i-1][key]);
-  const opts = (color) => ({
-    type: 'bar',
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: '#606080', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } },
-        y: { grid: { color: 'rgba(42,42,66,0.5)' }, ticks: { color: '#606080', font: { size: 10 }, callback: v => formatNum(v) } }
-      }
-    }
-  });
+
+  const labels = snapshots.map(s => (s.recorded_at || '').slice(5, 10));
+  const deltas = (key) => snapshots.map((s, i) => i === 0 ? 0 : s[key] - snapshots[i-1][key]);
 
   [['chartViews', 'views', '#8B5CF6'], ['chartLikes', 'likes', '#ef4444'],
    ['chartComments', 'comments', '#3b82f6'], ['chartShares', 'shares', '#22c55e']].forEach(([id, key, color]) => {
     const el = document.getElementById(id);
     if (!el) return;
     charts[id] = new Chart(el, {
-      ...opts(color),
+      type: 'bar',
       data: {
         labels,
         datasets: [{ data: deltas(key), backgroundColor: color + '88', borderColor: color, borderWidth: 1, borderRadius: 3 }]
-      }
-    });
-  });
-}
-
-function renderDiscovery() {
-  document.getElementById('discoveryResults').innerHTML = discoveryData.map((d, i) => `
-    <div class="discovery-card">
-      <div class="discovery-card-thumb">
-        🎬
-        <div class="discovery-card-views">${formatNum(d.views)} views</div>
-      </div>
-      <div class="discovery-card-body">
-        <div class="discovery-card-title">${d.title}</div>
-        <div class="discovery-card-creator">${d.creator}</div>
-        <div class="discovery-card-stats">
-          <span>❤️ ${formatNum(d.likes)}</span>
-          <span>💬 ${formatNum(d.comments)}</span>
-          <span>🔗 ${formatNum(d.shares)}</span>
-        </div>
-        <button class="btn-track" id="trackBtn${i}" onclick="trackDiscovery(${i})">Track This</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function renderCompare() {
-  const selector = document.getElementById('compareSelector');
-  const allPosts = [];
-  brands.forEach(b => { posts[b.id].forEach(p => { allPosts.push({ ...p, brand: b }); }); });
-  const selected = Array.from(selectedCompare);
-
-  selector.innerHTML = allPosts.slice(0, 12).map(p => `
-    <div class="compare-chip ${selectedCompare.has(p.id) ? 'selected' : ''}" onclick="toggleCompare('${p.id}'); renderCompare();">
-      <span>${p.brand.emoji}</span>
-      <span>${p.title.slice(0, 25)}...</span>
-    </div>
-  `).join('');
-
-  const grid = document.getElementById('compareGrid');
-  const selPosts = allPosts.filter(p => selectedCompare.has(p.id));
-  if (selPosts.length < 2) {
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Pilih minimal 2 post untuk mulai compare.</p></div>';
-    grid.className = 'compare-grid compare-grid-2';
-    return;
-  }
-  grid.className = `compare-grid compare-grid-${Math.min(selPosts.length, 3)}`;
-  grid.innerHTML = selPosts.slice(0, 3).map((p, i) => `
-    <div class="compare-col">
-      <div class="compare-col-title">${p.title.slice(0, 40)}...</div>
-      <div class="compare-col-brand">${p.brand.emoji} ${p.brand.name} · ${p.brand.username}</div>
-      ${[
-        { label: 'Views', value: p.current.views, delta: p.delta.views },
-        { label: 'Likes', value: p.current.likes, delta: p.delta.likes },
-        { label: 'Comments', value: p.current.comments, delta: p.delta.comments },
-        { label: 'Shares', value: p.current.shares, delta: p.delta.shares },
-      ].map(s => `
-        <div class="compare-stat-row">
-          <span class="compare-stat-label">${s.label}</span>
-          <span class="compare-stat-value">${formatNum(s.value)} <small class="${s.delta >= 0 ? 'delta-up' : 'delta-down'}" style="font-size:10px">${formatDelta(s.delta)}</small></span>
-        </div>
-      `).join('')}
-      <div class="compare-chart-box">
-        <div class="compare-chart-container"><canvas id="compareChart${i}"></canvas></div>
-      </div>
-    </div>
-  `).join('');
-
-  selPosts.slice(0, 3).forEach((p, i) => {
-    const el = document.getElementById(`compareChart${i}`);
-    if (!el) return;
-    const labels = p.snapshots.map(s => s.date.slice(5));
-    const data = p.snapshots.map(s => s.views);
-    new Chart(el, {
-      type: 'line',
-      data: { labels, datasets: [{ data, borderColor: p.brand.color, backgroundColor: p.brand.color + '22', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
+      },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { display: false },
-          y: { grid: { color: 'rgba(42,42,66,0.3)' }, ticks: { color: '#606080', font: { size: 9 }, callback: v => formatNum(v) } }
+          x: { grid: { display: false }, ticks: { color: '#606080', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } },
+          y: { grid: { color: 'rgba(42,42,66,0.5)' }, ticks: { color: '#606080', font: { size: 10 }, callback: v => formatNum(v) } }
         }
       }
     });
   });
 }
 
+// ===== RENDER: DISCOVERY =====
+function renderDiscovery() {
+  const container = document.getElementById('discoveryResults');
+  if (discoveryResults.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Masukkan keyword dan klik "Scan FYP" untuk mulai pencarian.</p></div>';
+    return;
+  }
+  container.innerHTML = discoveryResults.map((d, i) => `
+    <div class="discovery-card">
+      <div class="discovery-card-thumb">
+        🎬
+        <div class="discovery-card-views">${formatNum(d.views)} views</div>
+      </div>
+      <div class="discovery-card-body">
+        <div class="discovery-card-title">${d.title || 'Untitled'}</div>
+        <div class="discovery-card-creator">@${d.creator || 'unknown'}</div>
+        <div class="discovery-card-stats">
+          <span>❤️ ${formatNum(d.likes)}</span>
+        </div>
+        <button class="btn-track" id="trackBtn${i}" onclick="trackDiscovery('${d.url}', ${i})">Track This</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== RENDER: COMPARE =====
+async function renderCompare() {
+  const selector = document.getElementById('compareSelector');
+  const grid = document.getElementById('compareGrid');
+
+  // Show all tracked posts across all brands for selection
+  let allPosts = [];
+  for (const b of brands) {
+    try {
+      const posts = await apiFetch(`/brands/${b.id}/posts`);
+      posts.forEach(p => allPosts.push({ ...p, brand: b }));
+    } catch (e) {}
+  }
+
+  selector.innerHTML = allPosts.map(p => `
+    <div class="compare-chip ${selectedCompare.has(p.id) ? 'selected' : ''}" onclick="toggleCompare('${p.id}'); renderCompare();">
+      <span>${p.brand.logo_emoji || '📦'}</span>
+      <span>${(p.title || 'Untitled').slice(0, 25)}${(p.title || '').length > 25 ? '...' : ''}</span>
+    </div>
+  `).join('');
+
+  const selPosts = allPosts.filter(p => selectedCompare.has(p.id));
+  if (selPosts.length < 2) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Pilih minimal 2 post untuk mulai compare.</p></div>';
+    grid.className = 'compare-grid compare-grid-2';
+    return;
+  }
+
+  // Fetch compare data from API
+  try {
+    const ids = selPosts.map(p => p.id).join(',');
+    const compareData = await apiFetch(`/compare?post_ids=${ids}`);
+
+    grid.className = `compare-grid compare-grid-${Math.min(compareData.length, 3)}`;
+    grid.innerHTML = compareData.slice(0, 3).map((c, i) => {
+      const brand = selPosts.find(p => p.id === c.post_id)?.brand || {};
+      return `
+        <div class="compare-col">
+          <div class="compare-col-title">${(c.title || 'Untitled').slice(0, 40)}</div>
+          <div class="compare-col-brand">${brand.logo_emoji || '📦'} ${brand.name || ''}</div>
+          ${[
+            { label: 'Views', value: c.current_views },
+            { label: 'Likes', value: c.current_likes },
+            { label: 'Comments', value: c.current_comments },
+            { label: 'Shares', value: c.current_shares },
+          ].map(s => `
+            <div class="compare-stat-row">
+              <span class="compare-stat-label">${s.label}</span>
+              <span class="compare-stat-value">${formatNum(s.value)}</span>
+            </div>
+          `).join('')}
+          <div class="compare-chart-box">
+            <div class="compare-chart-container"><canvas id="compareChart${i}"></canvas></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Render compare charts
+    compareData.slice(0, 3).forEach((c, i) => {
+      const el = document.getElementById(`compareChart${i}`);
+      if (!el || !c.snapshots || c.snapshots.length === 0) return;
+      const brand = selPosts.find(p => p.id === c.post_id)?.brand || {};
+      const labels = c.snapshots.map(s => (s.date || '').slice(5, 10));
+      const data = c.snapshots.map(s => s.views);
+      new Chart(el, {
+        type: 'line',
+        data: { labels, datasets: [{ data, borderColor: brand.color || '#8B5CF6', backgroundColor: (brand.color || '#8B5CF6') + '22', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: { grid: { color: 'rgba(42,42,66,0.3)' }, ticks: { color: '#606080', font: { size: 9 }, callback: v => formatNum(v) } }
+          }
+        }
+      });
+    });
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>Gagal memuat data compare.</p></div>';
+  }
+}
+
 // ===== ACTIONS =====
-function selectBrand(id) {
+async function selectBrand(id) {
   currentBrand = id;
   currentPost = null;
   const brand = brands.find(b => b.id === id);
-  document.getElementById('topbarTitle').textContent = `Dashboard — ${brand.name}`;
-  renderBrands(); renderBrandStats(); renderPostList();
+  document.getElementById('topbarTitle').textContent = `Dashboard — ${brand?.name || ''}`;
+  renderBrands();
+  renderBrandStats();
+
+  // Fetch posts for this brand
+  try {
+    currentPosts = await apiFetch(`/brands/${id}/posts`);
+  } catch (e) {
+    currentPosts = [];
+    console.error('Failed to load posts:', e);
+  }
+
+  renderPostList();
+  if (currentPosts.length > 0) {
+    selectPost(currentPosts[0].id);
+  }
+
   switchPage('dashboard');
 }
 
-function selectPost(id) {
+async function selectPost(id) {
   currentPost = id;
+  // Update active state in list
   document.querySelectorAll('.post-row').forEach(el => el.classList.remove('active'));
+  const idx = currentPosts.findIndex(p => p.id === id);
   const rows = document.querySelectorAll('.post-row');
-  const bp = posts[currentBrand];
-  const idx = bp.findIndex(p => p.id === id);
   if (rows[idx]) rows[idx].classList.add('active');
-  renderDetail(id);
+
+  await renderDetail(id);
 }
 
 function switchPage(page) {
@@ -945,9 +990,7 @@ function switchPage(page) {
 function filterPosts(type, el) {
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  const bp = posts[currentBrand];
-  if (type === 'views') bp.sort((a, b) => b.current.views - a.current.views);
-  else if (type === 'gains') bp.sort((a, b) => b.delta.views - a.delta.views);
+  // Sort is limited without snapshot data in post list; just re-render
   renderPostList();
 }
 
@@ -964,43 +1007,147 @@ function toggleCompare(id, checked) {
   renderPostList();
 }
 
-function goToCompare() {
-  switchPage('compare');
-}
+function goToCompare() { switchPage('compare'); }
 
-function openModal() { document.getElementById('modalOverlay').classList.add('active'); }
-function closeModal(e) { if (!e || e.target === e.currentTarget) document.getElementById('modalOverlay').classList.remove('active'); }
+// ===== MODAL =====
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('active');
+  updateBrandSelects();
+}
+function closeModal(e) {
+  if (!e || e.target === e.currentTarget) document.getElementById('modalOverlay').classList.remove('active');
+}
 function switchModalTab(i, el) {
   document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById(`modalTab${i}`).classList.add('active');
 }
-function submitModal() {
-  closeModal();
-  showToast('Post berhasil ditambahkan ke tracking!');
+
+async function submitModal() {
+  const activeTab = document.querySelector('.modal-tab.active');
+  const tabIndex = [...document.querySelectorAll('.modal-tab')].indexOf(activeTab);
+
+  try {
+    if (tabIndex === 0) {
+      // By Link
+      const url = document.getElementById('inputPostUrl').value.trim();
+      if (!url) { showToast('Masukkan URL TikTok', true); return; }
+      const brandId = document.getElementById('selectLinkBrand').value || undefined;
+      const body = { tiktok_url: url };
+      if (brandId) body.brand_id = brandId;
+      await apiFetch('/posts/add-by-link', { method: 'POST', body: JSON.stringify(body) });
+      showToast('Post ditambahkan! Scraping dimulai...');
+      document.getElementById('inputPostUrl').value = '';
+
+    } else if (tabIndex === 1) {
+      // By Account
+      const username = document.getElementById('inputAccountUsername').value.trim();
+      const brandId = document.getElementById('selectAccountBrand').value;
+      if (!username || !brandId) { showToast('Isi username dan pilih brand', true); return; }
+      await apiFetch('/posts/add-by-account', { method: 'POST', body: JSON.stringify({ tiktok_username: username, brand_id: brandId }) });
+      showToast('Account discovery dimulai...');
+      document.getElementById('inputAccountUsername').value = '';
+
+    } else if (tabIndex === 2) {
+      // Discovery
+      const keyword = document.getElementById('inputDiscoveryKeyword').value.trim();
+      if (!keyword) { showToast('Masukkan keyword', true); return; }
+      const maxResults = parseInt(document.getElementById('selectDiscoveryMax').value);
+      showToast('Scanning FYP...');
+      closeModal();
+      const results = await apiFetch('/discovery/search', { method: 'POST', body: JSON.stringify({ keyword, max_results: maxResults }) });
+      discoveryResults = results.results || results || [];
+      switchPage('discovery');
+      renderDiscovery();
+      showToast(`Ditemukan ${discoveryResults.length} post`);
+      return;
+    }
+
+    closeModal();
+    // Reload current brand posts
+    if (currentBrand) {
+      setTimeout(async () => {
+        currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
+        renderPostList();
+        renderBrandStats();
+      }, 2000); // Wait a bit for scraper to start
+    }
+  } catch (e) {
+    showToast(e.message, true);
+  }
 }
 
-function trackDiscovery(i) {
-  const btn = document.getElementById(`trackBtn${i}`);
-  btn.textContent = '✓ Tracked';
-  btn.classList.add('tracked');
-  showToast('Post ditambahkan ke tracking!');
+async function scrapeNow(postId) {
+  try {
+    await apiFetch(`/posts/${postId}/scrape`, { method: 'POST' });
+    showToast('Scraping dimulai... Refresh dalam 30 detik.');
+    // Auto-refresh after delay
+    setTimeout(() => selectPost(postId), 35000);
+  } catch (e) {
+    showToast('Gagal memulai scrape: ' + e.message, true);
+  }
 }
 
-function runDiscovery() { showToast('Scanning FYP... Hasil akan muncul dalam beberapa detik.'); }
+async function trackDiscovery(url, index) {
+  const btn = document.getElementById(`trackBtn${index}`);
+  if (!currentBrand) { showToast('Pilih brand dulu di sidebar', true); return; }
+  try {
+    btn.textContent = 'Adding...';
+    await apiFetch('/posts/add-by-link', { method: 'POST', body: JSON.stringify({ tiktok_url: url, brand_id: currentBrand }) });
+    btn.textContent = '✓ Tracked';
+    btn.classList.add('tracked');
+    showToast('Post ditambahkan ke tracking!');
+  } catch (e) {
+    btn.textContent = 'Failed';
+    showToast(e.message, true);
+  }
+}
+
+async function runDiscovery() {
+  const keyword = document.getElementById('discoverySearch').value.trim();
+  if (!keyword) { showToast('Masukkan keyword', true); return; }
+  showToast('Scanning FYP... Proses ini membutuhkan waktu.');
+  try {
+    const results = await apiFetch('/discovery/search', { method: 'POST', body: JSON.stringify({ keyword, max_results: 50 }) });
+    discoveryResults = results.results || results || [];
+    renderDiscovery();
+    showToast(`Ditemukan ${discoveryResults.length} post`);
+  } catch (e) {
+    showToast('Discovery gagal: ' + e.message, true);
+  }
+}
+
 function setDiscoveryKeyword(kw) { document.getElementById('discoverySearch').value = kw; }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
 // ===== INIT =====
-renderBrands();
-renderBrandStats();
-renderPostList();
+(async function init() {
+  try {
+    // Try health check first
+    await apiFetch('/health');
+
+    // Load brands
+    brands = await apiFetch('/brands');
+    renderBrands();
+
+    if (brands.length === 0) {
+      // Auto-run setup if no brands
+      showToast('Setting up... Membuat brand default.');
+      await apiFetch('/setup', { method: 'POST' });
+      brands = await apiFetch('/brands');
+      renderBrands();
+    }
+
+    if (brands.length > 0) {
+      await selectBrand(brands[0].id);
+    }
+  } catch (e) {
+    console.error('Init failed:', e);
+    document.getElementById('topbarTitle').textContent = 'Dashboard — Offline';
+    document.getElementById('brandStatsGrid').innerHTML =
+      '<div style="padding:12px;color:var(--red);font-size:12px">Tidak bisa terhubung ke API server. Pastikan backend sudah berjalan.</div>';
+  }
+})();
 </script>
 </body>
 </html>

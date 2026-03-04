@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.brand import Brand
+from app.models.business import Business
 
 router = APIRouter()
 
@@ -60,6 +61,11 @@ def list_brands(db: Session = Depends(get_db)):
 @router.post("/brands", response_model=BrandResponse, status_code=201)
 def create_brand(data: BrandCreate, db: Session = Depends(get_db)):
     """Tambah brand baru."""
+    # Get first business (single-tenant for now)
+    business = db.query(Business).first()
+    if not business:
+        raise HTTPException(status_code=400, detail="No business found. Run /api/setup first.")
+
     brand = Brand(
         name=data.name,
         tiktok_username=data.tiktok_username,
@@ -67,8 +73,7 @@ def create_brand(data: BrandCreate, db: Session = Depends(get_db)):
         color=data.color,
         logo_emoji=data.logo_emoji,
         auto_discover=data.auto_discover,
-        # TODO: get business_id from auth context
-        business_id=uuid.uuid4(),
+        business_id=business.id,
     )
     db.add(brand)
     db.commit()

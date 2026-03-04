@@ -532,11 +532,17 @@ tr:hover td { background: var(--bg-tertiary); }
   /* Login card */
   .login-card { width: calc(100vw - 48px); padding: 28px 20px; }
 
-  /* Brand stats grid */
-  .brand-stats { padding: 12px; }
-  .brand-stats-grid { gap: 6px; }
-  .stat-mini { padding: 8px 10px; }
-  .stat-mini-value { font-size: 16px; }
+  /* Brand stats grid — larger on mobile */
+  .brand-stats { padding: 16px; }
+  .brand-stats-grid { gap: 10px; }
+  .stat-mini {
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .stat-mini-label { font-size: 11px; letter-spacing: 1px; }
+  .stat-mini-value { font-size: 24px; margin-top: 4px; }
+  .stat-mini-delta { font-size: 13px; margin-top: 4px; }
 
   /* Table scroll */
   .snapshot-table-box { overflow-x: auto; }

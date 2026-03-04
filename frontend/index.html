@@ -556,15 +556,15 @@ tr:hover td { background: var(--bg-tertiary); }
     </div>
 
     <!-- PAGE: USERS (Owner only) -->
-    <div class="page" id="page-users" style="padding:24px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div class="page" id="page-users" style="padding:24px;flex-direction:column;align-items:flex-start;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;width:100%;max-width:600px;">
         <div>
           <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">User Management</h2>
           <p style="font-size:13px;color:var(--text-secondary)">Kelola akses tim ke SocTrack.</p>
         </div>
         <button class="btn" style="background:var(--accent);color:#fff;padding:8px 16px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;" onclick="openUserModal()">+ Tambah User</button>
       </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;width:100%;max-width:600px;">
         <div id="userListContainer"></div>
       </div>
     </div>

@@ -249,7 +249,7 @@ async def _sync_tiktok_posts(db: Session, posts: list, result: SyncResult, on_pr
 
                 if not post.title and metrics.title:
                     post.title = metrics.title
-                if metrics.video_id and post.tiktok_video_id == "pending":
+                if metrics.video_id and post.tiktok_video_id.startswith("pending"):
                     post.tiktok_video_id = metrics.video_id
 
                 duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)

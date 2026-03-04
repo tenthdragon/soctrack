@@ -1038,7 +1038,7 @@ function startPolling(postId) {
           continue;
         }
         const hasTitleNow = updated.title && updated.title.length > 0;
-        const videoResolved = updated.tiktok_video_id && updated.tiktok_video_id !== 'pending';
+        const videoResolved = updated.tiktok_video_id && !updated.tiktok_video_id.startsWith('pending');
         if (hasTitleNow && videoResolved) {
           scrapingPosts.delete(pid);
           anyDone = true;
@@ -1185,7 +1185,7 @@ function renderPostList() {
   }
 
   container.innerHTML = filtered.map(p => {
-    const isScraping = scrapingPosts.has(p.id) || (!p.title && !waitingPosts.has(p.id) && p.tiktok_video_id === 'pending');
+    const isScraping = scrapingPosts.has(p.id) || (!p.title && !waitingPosts.has(p.id) && p.tiktok_video_id && p.tiktok_video_id.startsWith('pending'));
     const isWaiting = waitingPosts.has(p.id);
     const stateClass = isScraping ? 'scraping' : (isWaiting ? 'waiting' : '');
     const thumbContent = isScraping
@@ -1463,7 +1463,7 @@ async function selectBrand(id) {
   }
 
   // Auto-resume polling if any posts are still being scraped
-  const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
+  const pendingPosts = currentPosts.filter(p => !p.title || (p.tiktok_video_id && p.tiktok_video_id.startsWith('pending')));
   if (pendingPosts.length > 0 && !pollTimer) {
     // First pending = scraping, rest = waiting
     scrapingPosts.add(pendingPosts[0].id);

@@ -171,7 +171,7 @@ async def _scrape_tiktok_and_save(post_id: uuid.UUID, url: str):
         post = db.query(Post).filter(Post.id == post_id).first()
         if post and not post.title and metrics.title:
             post.title = metrics.title
-        if post and metrics.video_id and post.tiktok_video_id == "pending":
+        if post and metrics.video_id and post.tiktok_video_id.startswith("pending"):
             post.tiktok_video_id = metrics.video_id
             post.tiktok_url = f"https://www.tiktok.com/@{metrics.author}/video/{metrics.video_id}"
 
@@ -204,7 +204,7 @@ async def _scrape_instagram_and_save(post_id: uuid.UUID, url: str):
         if post:
             if not post.title and metrics.title:
                 post.title = metrics.title
-            if metrics.shortcode and post.tiktok_video_id == "pending":
+            if metrics.shortcode and post.tiktok_video_id.startswith("pending"):
                 post.tiktok_video_id = metrics.shortcode
                 post.tiktok_url = f"https://www.instagram.com/p/{metrics.shortcode}/"
             if metrics.thumbnail_url and not post.thumbnail_url:
@@ -356,10 +356,17 @@ def add_post_by_link(
         try:
             video_id = extract_video_id(url)
         except ValueError:
-            video_id = "pending"
+            # Use unique placeholder to avoid unique constraint collision
+            # when multiple URLs are added before scraping resolves the real ID
+            video_id = f"pending_{uuid.uuid4().hex[:12]}"
 
-        if video_id != "pending":
+        if not video_id.startswith("pending_"):
             existing = db.query(Post).filter(Post.tiktok_video_id == video_id).first()
+            if existing:
+                raise HTTPException(status_code=409, detail="Post already being tracked")
+        else:
+            # Also check by URL to prevent adding the same link twice
+            existing = db.query(Post).filter(Post.tiktok_url == url).first()
             if existing:
                 raise HTTPException(status_code=409, detail="Post already being tracked")
 

@@ -541,35 +541,79 @@ tr:hover td { background: var(--bg-tertiary); }
       <h3>Tambah Post</h3>
       <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">URL Post (TikTok / Instagram)</label>
-        <textarea class="form-input" id="inputPostUrls" rows="5" placeholder="Paste satu atau beberapa URL (satu per baris)&#10;&#10;Contoh TikTok:&#10;https://vt.tiktok.com/ZSmo8dQtN/&#10;https://www.tiktok.com/@roove.co.id/video/123&#10;&#10;Contoh Instagram:&#10;https://www.instagram.com/p/ABC123/&#10;https://www.instagram.com/reel/XYZ789/&#10;https://www.instagram.com/roove.co.id/" style="resize:vertical;min-height:100px;font-size:12px;line-height:1.6"></textarea>
-        <div class="form-hint">Mendukung TikTok & Instagram. Paste URL post/reel atau URL profil Instagram untuk auto-discover semua post terbaru.</div>
+    <div class="modal-tabs">
+      <div class="modal-tab active" onclick="switchModalTab('byUrl', this)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        By URL
       </div>
-      <div class="form-group">
-        <label class="form-label">Brand</label>
-        <div style="display:flex;gap:8px;">
-          <select class="form-select" id="selectBrand" style="flex:1"></select>
-          <button class="btn btn-outline" onclick="toggleNewBrand()" style="white-space:nowrap;font-size:12px;padding:8px 12px;">+ Brand Baru</button>
+      <div class="modal-tab" onclick="switchModalTab('igDiscover', this)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;color:#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+        IG Discover
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- TAB: By URL -->
+      <div class="modal-tab-content active" id="tabByUrl">
+        <div class="form-group">
+          <label class="form-label">URL Post (TikTok / Instagram)</label>
+          <textarea class="form-input" id="inputPostUrls" rows="4" placeholder="Paste satu atau beberapa URL (satu per baris)&#10;&#10;Contoh:&#10;https://vt.tiktok.com/ZSmo8dQtN/&#10;https://www.instagram.com/p/ABC123/" style="resize:vertical;min-height:80px;font-size:12px;line-height:1.6"></textarea>
+          <div class="form-hint">Mendukung TikTok & Instagram. Paste URL post atau reel, satu per baris.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand</label>
+          <div style="display:flex;gap:8px;">
+            <select class="form-select" id="selectBrand" style="flex:1"></select>
+            <button class="btn btn-outline" onclick="toggleNewBrand()" style="white-space:nowrap;font-size:12px;padding:8px 12px;">+ Brand Baru</button>
+          </div>
+        </div>
+        <div class="form-group" id="newBrandGroup" style="display:none;">
+          <label class="form-label">Nama Brand Baru</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" class="form-input" id="inputNewBrandName" placeholder="Nama brand" style="flex:1">
+            <input type="text" class="form-input" id="inputNewBrandUsername" placeholder="@username" style="flex:1">
+            <select class="form-select" id="selectNewBrandType" style="width:120px">
+              <option value="own">Own</option>
+              <option value="competitor">Competitor</option>
+            </select>
+          </div>
         </div>
       </div>
-      <div class="form-group" id="newBrandGroup" style="display:none;">
-        <label class="form-label">Nama Brand Baru</label>
-        <div style="display:flex;gap:8px;">
-          <input type="text" class="form-input" id="inputNewBrandName" placeholder="Nama brand" style="flex:1">
-          <input type="text" class="form-input" id="inputNewBrandUsername" placeholder="@username" style="flex:1">
-          <select class="form-select" id="selectNewBrandType" style="width:120px">
-            <option value="own">Own</option>
-            <option value="competitor">Competitor</option>
-          </select>
+      <!-- TAB: IG Discover -->
+      <div class="modal-tab-content" id="tabIgDiscover">
+        <div style="padding:10px 14px;background:rgba(228,64,95,0.08);border:1px solid rgba(228,64,95,0.2);border-radius:var(--radius-sm);margin-bottom:16px;font-size:12px;color:#E4405F;display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+          Otomatis ambil 12 post terbaru beserta metrics dari profil Instagram
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username atau URL Profil Instagram</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" class="form-input" id="inputIgUsername" placeholder="roove.co.id atau https://instagram.com/roove.co.id" style="flex:1">
+          </div>
+          <div class="form-hint">Masukkan username (tanpa @) atau URL profil Instagram. Akun harus publik.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand</label>
+          <div style="display:flex;gap:8px;">
+            <select class="form-select" id="selectBrandIg" style="flex:1"></select>
+            <button class="btn btn-outline" onclick="toggleNewBrandIg()" style="white-space:nowrap;font-size:12px;padding:8px 12px;">+ Brand Baru</button>
+          </div>
+        </div>
+        <div class="form-group" id="newBrandGroupIg" style="display:none;">
+          <label class="form-label">Nama Brand Baru</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" class="form-input" id="inputNewBrandNameIg" placeholder="Nama brand" style="flex:1">
+            <select class="form-select" id="selectNewBrandTypeIg" style="width:120px">
+              <option value="own">Own</option>
+              <option value="competitor">Competitor</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <div id="modalUrlCount" style="flex:1;font-size:11px;color:var(--text-muted)"></div>
       <button class="btn btn-outline" onclick="closeModal()">Batal</button>
-      <button class="btn btn-primary" onclick="submitModal()">Mulai Tracking</button>
+      <button class="btn btn-primary" id="modalSubmitBtn" onclick="submitModal()">Mulai Tracking</button>
     </div>
   </div>
 </div>
@@ -744,13 +788,6 @@ function renderBrands() {
 
   // Update modal brand selects
   updateBrandSelects();
-}
-
-function updateBrandSelects() {
-  const sel = document.getElementById('selectBrand');
-  if (sel) {
-    sel.innerHTML = brands.map((b, i) => `<option value="${b.id}" ${b.id === currentBrand ? 'selected' : ''}>${b.logo_emoji || '📦'} ${b.name} ${b.is_competitor ? '(Competitor)' : ''}</option>`).join('');
-  }
 }
 
 // ===== RENDER: BRAND STATS =====
@@ -1136,15 +1173,43 @@ function toggleCompare(id, checked) {
 function goToCompare() { switchPage('compare'); }
 
 // ===== MODAL =====
+let activeModalTab = 'byUrl'; // 'byUrl' or 'igDiscover'
+
 function openModal() {
   document.getElementById('modalOverlay').classList.add('active');
   updateBrandSelects();
   document.getElementById('newBrandGroup').style.display = 'none';
+  document.getElementById('newBrandGroupIg').style.display = 'none';
   document.getElementById('inputPostUrls').value = '';
+  document.getElementById('inputIgUsername').value = '';
   updateUrlCount();
+  switchModalTab('byUrl', document.querySelector('.modal-tab'));
 }
 function closeModal(e) {
   if (!e || e.target === e.currentTarget) document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function switchModalTab(tab, el) {
+  activeModalTab = tab;
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(tab === 'byUrl' ? 'tabByUrl' : 'tabIgDiscover').classList.add('active');
+
+  // Update submit button text
+  const btn = document.getElementById('modalSubmitBtn');
+  if (tab === 'igDiscover') {
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"/></svg> Discover Posts';
+    btn.onclick = submitIgDiscover;
+  } else {
+    btn.textContent = 'Mulai Tracking';
+    btn.onclick = submitModal;
+  }
+
+  // Update URL count display
+  const counter = document.getElementById('modalUrlCount');
+  counter.textContent = tab === 'igDiscover' ? 'Akan mengambil ~12 post terbaru' : '';
+  if (tab === 'byUrl') updateUrlCount();
 }
 
 function toggleNewBrand() {
@@ -1152,11 +1217,27 @@ function toggleNewBrand() {
   group.style.display = group.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleNewBrandIg() {
+  const group = document.getElementById('newBrandGroupIg');
+  group.style.display = group.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateBrandSelects() {
+  ['selectBrand', 'selectBrandIg'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (sel) {
+      sel.innerHTML = brands.map((b, i) => `<option value="${b.id}" ${b.id === currentBrand ? 'selected' : ''}>${b.logo_emoji || '📦'} ${b.name} ${b.is_competitor ? '(Competitor)' : ''}</option>`).join('');
+    }
+  });
+}
+
 function updateUrlCount() {
   const text = document.getElementById('inputPostUrls').value.trim();
   const urls = text ? text.split('\n').filter(u => u.trim().length > 0) : [];
   const counter = document.getElementById('modalUrlCount');
-  counter.textContent = urls.length > 0 ? `${urls.length} URL${urls.length > 1 ? 's' : ''} terdeteksi` : '';
+  if (activeModalTab === 'byUrl') {
+    counter.textContent = urls.length > 0 ? `${urls.length} URL${urls.length > 1 ? 's' : ''} terdeteksi` : '';
+  }
 }
 
 // Attach URL counter
@@ -1241,6 +1322,105 @@ async function submitModal() {
   }
   if (pendingPosts.length > 0) {
     startPolling(pendingPosts[0].id); // triggers the single poll loop
+  }
+}
+
+async function submitIgDiscover() {
+  let input = document.getElementById('inputIgUsername').value.trim();
+  if (!input) { showToast('Masukkan username atau URL Instagram', true); return; }
+
+  // Extract username from URL if needed
+  const urlMatch = input.match(/instagram\.com\/([A-Za-z0-9_.]+)/);
+  if (urlMatch) {
+    input = urlMatch[1];
+  }
+  input = input.replace(/^@/, ''); // remove leading @
+
+  // Determine brand
+  let brandId = document.getElementById('selectBrandIg').value;
+
+  // Create new brand if needed
+  const newBrandGroup = document.getElementById('newBrandGroupIg');
+  if (newBrandGroup.style.display !== 'none') {
+    const newName = document.getElementById('inputNewBrandNameIg').value.trim();
+    if (!newName) { showToast('Masukkan nama brand baru', true); return; }
+    const isComp = document.getElementById('selectNewBrandTypeIg').value === 'competitor';
+    try {
+      const newBrand = await apiFetch('/brands', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newName,
+          is_competitor: isComp,
+          color: isComp ? '#ec4899' : '#8B5CF6',
+          logo_emoji: isComp ? '🏷️' : '📦',
+        }),
+      });
+      brandId = newBrand.id;
+      brands.push(newBrand);
+      renderBrands();
+      showToast(`Brand "${newName}" berhasil dibuat`);
+    } catch (e) {
+      showToast('Gagal buat brand: ' + e.message, true);
+      return;
+    }
+  }
+
+  if (!brandId) { showToast('Pilih brand atau buat brand baru', true); return; }
+
+  closeModal();
+
+  // Send profile URL to trigger discovery
+  const profileUrl = `https://www.instagram.com/${input}/`;
+  showScrapingOverlay('Discovering Instagram posts...', `Mengambil post terbaru dari @${input}`);
+
+  try {
+    const result = await apiFetch('/posts/add-by-link', {
+      method: 'POST',
+      body: JSON.stringify({ url: profileUrl, brand_id: brandId }),
+    });
+    showToast(`Instagram discovery dimulai untuk @${input}`);
+
+    // Switch to brand and start polling
+    if (brandId !== currentBrand) {
+      await selectBrand(brandId);
+    }
+
+    // Poll for new posts to appear (discovery runs in background)
+    let pollCount = 0;
+    const discoverPoll = setInterval(async () => {
+      pollCount++;
+      try {
+        const freshPosts = await apiFetch(`/brands/${currentBrand}/posts`);
+        const igPosts = freshPosts.filter(p => p.platform === 'instagram');
+        if (igPosts.length > currentPosts.filter(p => p.platform === 'instagram').length || pollCount > 15) {
+          currentPosts = freshPosts;
+          renderPostList();
+          renderBrandStats();
+          clearInterval(discoverPoll);
+          hideScrapingOverlay();
+          if (igPosts.length > 0) {
+            showToast(`${igPosts.length} post Instagram ditemukan!`);
+            // Switch to IG filter
+            currentFilter = 'instagram';
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.filter-chip').forEach(c => { if (c.textContent.includes('IG')) c.classList.add('active'); });
+            renderPostList();
+          }
+        } else {
+          document.getElementById('scrapingDetail').textContent = `Mencari post dari @${input}... (${pollCount * 5}s)`;
+        }
+      } catch (e) { console.error('Discover poll error:', e); }
+    }, 5000);
+
+    // Auto-stop after 90 seconds
+    setTimeout(() => {
+      clearInterval(discoverPoll);
+      hideScrapingOverlay();
+    }, 90000);
+
+  } catch (e) {
+    hideScrapingOverlay();
+    showToast('Gagal memulai discovery: ' + e.message, true);
   }
 }
 

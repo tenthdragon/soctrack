@@ -1,4 +1,4 @@
-"""Post model — individual TikTok video being tracked."""
+"""Post model — individual social media post being tracked."""
 
 import uuid
 from datetime import datetime
@@ -18,9 +18,13 @@ class Post(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brands.id"), nullable=False)
-    tiktok_url: Mapped[str] = mapped_column(Text, nullable=False)
-    tiktok_video_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    platform: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="tiktok"
+    )  # "tiktok", "instagram"
+    tiktok_url: Mapped[str] = mapped_column(Text, nullable=False)  # works for any platform URL
+    tiktok_video_id: Mapped[str] = mapped_column(String(255), nullable=False)  # shortcode for IG
     title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    thumbnail_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # post thumbnail
     posted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     tracking_since: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -403,6 +403,32 @@ def scrape_post_now(
     return {"message": "Scraping started", "post_id": str(post.id)}
 
 
+@router.post("/brands/{brand_id}/scrape-all", status_code=202)
+def scrape_all_posts(
+    brand_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Trigger scrape for ALL active posts of a brand."""
+    posts = (
+        db.query(Post)
+        .filter(Post.brand_id == brand_id, Post.is_active == True)
+        .all()
+    )
+    if not posts:
+        raise HTTPException(status_code=404, detail="No active posts found for this brand")
+
+    count = 0
+    for post in posts:
+        if post.platform == "instagram":
+            background_tasks.add_task(_scrape_instagram_and_save, post.id, post.tiktok_url)
+        else:
+            background_tasks.add_task(_scrape_tiktok_and_save, post.id, post.tiktok_url)
+        count += 1
+
+    return {"message": f"Scraping started for {count} posts", "count": count}
+
+
 @router.post("/posts/add-by-account", status_code=202)
 def add_post_by_account(
     data: PostAddByAccount,

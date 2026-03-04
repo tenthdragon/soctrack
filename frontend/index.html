@@ -354,6 +354,14 @@ tr:hover td { background: var(--bg-tertiary); }
   color: #fff; transition: all .15s;
 }
 .btn-add-post:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn-refresh-all {
+  padding: 5px 8px; border-radius: 14px; font-size: 11px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+  transition: all .15s; display: flex; align-items: center;
+}
+.btn-refresh-all:hover { border-color: var(--accent); color: var(--accent); }
+.btn-refresh-all.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ===== SCRAPING ANIMATION ===== */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -482,6 +490,9 @@ tr:hover td { background: var(--bg-tertiary); }
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg> IG
             </span>
             <button class="btn-add-post" onclick="openModal()">+ Tambah Post</button>
+            <button class="btn-refresh-all" id="btnRefreshAll" onclick="scrapeAll()" title="Scrape ulang semua post">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            </button>
           </div>
           <div class="post-list-scroll" id="postListScroll"></div>
         </div>
@@ -1431,6 +1442,34 @@ async function scrapeNow(postId) {
     renderPostList();
   } catch (e) {
     showToast('Gagal memulai scrape: ' + e.message, true);
+  }
+}
+
+async function scrapeAll() {
+  if (!currentBrand) { showToast('Pilih brand terlebih dahulu', true); return; }
+
+  const btn = document.getElementById('btnRefreshAll');
+  if (btn.classList.contains('spinning')) return; // prevent double-click
+
+  btn.classList.add('spinning');
+
+  try {
+    const result = await apiFetch(`/brands/${currentBrand}/scrape-all`, { method: 'POST' });
+    showToast(`Scraping ${result.count} post dimulai...`);
+
+    // Mark all posts as scraping and start polling
+    for (const p of currentPosts) {
+      scrapingPosts.add(p.id);
+    }
+    if (currentPosts.length > 0) {
+      startPolling(currentPosts[0].id);
+    }
+    renderPostList();
+  } catch (e) {
+    showToast('Gagal memulai scrape: ' + e.message, true);
+  } finally {
+    // Stop spinning after 3 seconds regardless
+    setTimeout(() => btn.classList.remove('spinning'), 3000);
   }
 }
 

@@ -36,3 +36,4 @@ class Post(Base):
     # Relationships
     brand = relationship("Brand", back_populates="posts")
     snapshots = relationship("Snapshot", back_populates="post", cascade="all, delete-orphan")
+    scrape_logs = relationship("ScrapeLog", back_populates="post", cascade="all, delete-orphan")

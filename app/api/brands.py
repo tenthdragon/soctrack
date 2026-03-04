@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.brand import Brand
 from app.models.business import Business
+from app.models.user import User
+from app.auth import get_current_user
 
 router = APIRouter()
 
@@ -53,13 +55,13 @@ class BrandResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────
 
 @router.get("/brands", response_model=list[BrandResponse])
-def list_brands(db: Session = Depends(get_db)):
+def list_brands(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """List semua brands untuk business yang login."""
     return db.query(Brand).all()
 
 
 @router.post("/brands", response_model=BrandResponse, status_code=201)
-def create_brand(data: BrandCreate, db: Session = Depends(get_db)):
+def create_brand(data: BrandCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Tambah brand baru."""
     # Get first business (single-tenant for now)
     business = db.query(Business).first()
@@ -82,7 +84,7 @@ def create_brand(data: BrandCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/brands/{brand_id}", response_model=BrandResponse)
-def update_brand(brand_id: uuid.UUID, data: BrandUpdate, db: Session = Depends(get_db)):
+def update_brand(brand_id: uuid.UUID, data: BrandUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Update brand."""
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:
@@ -97,7 +99,7 @@ def update_brand(brand_id: uuid.UUID, data: BrandUpdate, db: Session = Depends(g
 
 
 @router.delete("/brands/{brand_id}", status_code=204)
-def delete_brand(brand_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_brand(brand_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Hapus brand dan semua posts/snapshots-nya."""
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if not brand:

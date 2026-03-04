@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.snapshot import Snapshot
 from app.models.post import Post
+from app.models.user import User
+from app.auth import get_current_user
 
 router = APIRouter()
 
@@ -66,6 +68,7 @@ def list_snapshots(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """List semua daily snapshots untuk post tertentu."""
     query = db.query(Snapshot).filter(Snapshot.post_id == post_id)
@@ -79,7 +82,7 @@ def list_snapshots(
 
 
 @router.get("/brands/{brand_id}/stats", response_model=BrandStats)
-def brand_stats(brand_id: uuid.UUID, db: Session = Depends(get_db)):
+def brand_stats(brand_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Aggregated stats untuk brand: total views/likes/comments/shares + deltas."""
     active_posts = db.query(Post).filter(
         Post.brand_id == brand_id, Post.is_active == True
@@ -131,6 +134,7 @@ def brand_daily_stats(
     brand_id: uuid.UUID,
     days: int = Query(14, ge=1, le=90),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Daily aggregated stats untuk chart di brand level."""
     # TODO: implement daily aggregation query
@@ -141,6 +145,7 @@ def brand_daily_stats(
 def compare_posts(
     post_ids: str = Query(..., description="Comma-separated post UUIDs"),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Data untuk compare view: metrics side by side."""
     ids = [uuid.UUID(pid.strip()) for pid in post_ids.split(",")]

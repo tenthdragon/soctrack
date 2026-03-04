@@ -14,6 +14,10 @@ asyncpg==0.30.0
 # Scraping
 playwright==1.49.1
 
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
 # Utilities
 python-dotenv==1.0.1
 httpx==0.28.1

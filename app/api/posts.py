@@ -17,6 +17,8 @@ from app.models.post import Post
 from app.models.brand import Brand
 from app.models.snapshot import Snapshot
 from app.models.scrape_log import ScrapeLog
+from app.models.user import User
+from app.auth import get_current_user
 
 logger = logging.getLogger("soctrack.api.posts")
 
@@ -272,7 +274,7 @@ async def _scrape_ig_profile_and_save(brand_id: uuid.UUID, username: str):
 # ── Endpoints ────────────────────────────────────────────
 
 @router.get("/brands/{brand_id}/posts", response_model=list[PostResponse])
-def list_posts(brand_id: uuid.UUID, db: Session = Depends(get_db)):
+def list_posts(brand_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """List semua tracked posts untuk brand tertentu."""
     return (
         db.query(Post)
@@ -286,6 +288,7 @@ def add_post_by_link(
     data: PostAddByLink,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Tambah post by URL (TikTok or Instagram) dan langsung scrape."""
     url = data.get_url()
@@ -397,6 +400,7 @@ def scrape_post_now(
     post_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Trigger immediate scrape for a specific post."""
     post = db.query(Post).filter(Post.id == post_id).first()
@@ -416,9 +420,10 @@ def scrape_all_posts(
     brand_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Trigger scrape for ALL active posts of a brand (legacy — redirects to sync)."""
-    return sync_brand_posts(brand_id, background_tasks, db)
+    return sync_brand_posts(brand_id, background_tasks, db, user)
 
 
 @router.post("/brands/{brand_id}/sync", status_code=202)
@@ -426,6 +431,7 @@ def sync_brand_posts(
     brand_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """
     Smart batch sync for all active posts of a brand.
@@ -473,6 +479,7 @@ def scrape_progress(
     since: str = Query(..., description="ISO timestamp of when scrape-all started"),
     total: int = Query(..., description="Total posts being scraped"),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Check how many posts have been scraped since a given timestamp."""
     try:
@@ -512,6 +519,7 @@ def add_post_by_account(
     data: PostAddByAccount,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Trigger account discovery: scrape profile, tambah semua post."""
     brand = db.query(Brand).filter(Brand.id == data.brand_id).first()
@@ -526,7 +534,7 @@ def add_post_by_account(
 
 
 @router.put("/posts/{post_id}", response_model=PostResponse)
-def update_post(post_id: uuid.UUID, data: PostUpdate, db: Session = Depends(get_db)):
+def update_post(post_id: uuid.UUID, data: PostUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Update post (e.g., untrack)."""
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
@@ -541,7 +549,7 @@ def update_post(post_id: uuid.UUID, data: PostUpdate, db: Session = Depends(get_
 
 
 @router.delete("/posts/{post_id}", status_code=204)
-def delete_post(post_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_post(post_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Hapus post dan semua snapshots-nya."""
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:

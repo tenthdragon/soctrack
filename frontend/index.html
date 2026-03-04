@@ -398,11 +398,79 @@ tr:hover td { background: var(--bg-tertiary); }
 /* Delete confirm in detail */
 .btn-delete { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
 .btn-delete:hover { border-color: var(--red); }
+
+/* ===== LOGIN PAGE ===== */
+.login-page {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh; background: var(--bg-primary);
+}
+.login-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 40px; width: 360px;
+  text-align: center;
+}
+.login-card h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.login-card .subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 28px; }
+.login-card .logo-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
+.login-card input {
+  width: 100%; padding: 10px 14px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-tertiary); color: var(--text-primary);
+  font-size: 14px; outline: none;
+}
+.login-card input:focus { border-color: var(--accent); }
+.login-card input::placeholder { color: var(--text-muted); }
+.login-card .btn-login {
+  width: 100%; padding: 11px; border: none; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.login-card .btn-login:hover { background: var(--accent-dark); }
+.login-card .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+.login-error { color: var(--red); font-size: 12px; margin-bottom: 12px; min-height: 18px; }
+
+/* User management (Owner) */
+.user-list-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.user-list-item:last-child { border-bottom: none; }
+.user-role { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.user-role.owner { background: rgba(139,92,246,0.2); color: var(--accent-light); }
+.user-role.user { background: var(--bg-tertiary); color: var(--text-secondary); }
+.btn-user-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.btn-user-delete:hover { color: var(--red); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-user .user-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+.btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; }
+.btn-logout:hover { color: var(--red); }
 </style>
 </head>
 <body>
 
-<div class="app">
+<!-- LOGIN PAGE -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="logo-row">
+      <svg viewBox="0 0 28 28" fill="none" width="28" height="28"><circle cx="14" cy="14" r="13" stroke="url(#g2)" stroke-width="2"/><path d="M10 9l8 5-8 5V9z" fill="url(#g2)"/><defs><linearGradient id="g2" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#8B5CF6"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs></svg>
+      <h1>SocTrack</h1>
+    </div>
+    <div class="subtitle">Social Media Performance Tracker</div>
+    <div class="login-error" id="loginError"></div>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <input type="email" id="loginEmail" placeholder="Email" required autocomplete="email">
+      <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+      <button type="submit" class="btn-login" id="loginBtn">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- APP (hidden until login) -->
+<div class="app" id="appPage" style="display:none">
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-header">
@@ -422,6 +490,10 @@ tr:hover td { background: var(--bg-tertiary); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
         Compare
       </div>
+      <div class="nav-item" data-page="users" onclick="switchPage('users')" id="navUsers" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        Users
+      </div>
     </nav>
 
     <div class="nav-divider"></div>
@@ -433,6 +505,11 @@ tr:hover td { background: var(--bg-tertiary); }
 
     <div class="sidebar-footer">
       <button class="btn-add-brand" onclick="openModal()">+ Tambah Brand</button>
+    </div>
+
+    <div class="sidebar-user" id="sidebarUser" style="display:none">
+      <span class="user-email" id="sidebarUserEmail"></span>
+      <button class="btn-logout" onclick="handleLogout()">Logout</button>
     </div>
   </aside>
 
@@ -476,6 +553,41 @@ tr:hover td { background: var(--bg-tertiary); }
       </div>
       <div class="compare-selector" id="compareSelector"></div>
       <div class="compare-grid compare-grid-2" id="compareGrid"></div>
+    </div>
+
+    <!-- PAGE: USERS (Owner only) -->
+    <div class="page" id="page-users" style="padding:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">User Management</h2>
+          <p style="font-size:13px;color:var(--text-secondary)">Kelola akses tim ke SocTrack.</p>
+        </div>
+        <button class="btn" style="background:var(--accent);color:#fff;padding:8px 16px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;" onclick="openUserModal()">+ Tambah User</button>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+        <div id="userListContainer"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="userModalOverlay" onclick="closeUserModal(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>Tambah User Baru</h3>
+      <button class="modal-close" onclick="document.getElementById('userModalOverlay').classList.remove('active')">&times;</button>
+    </div>
+    <div style="padding:20px;">
+      <input type="text" id="newUserName" placeholder="Nama lengkap" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;">
+      <input type="email" id="newUserEmail" placeholder="Email" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;">
+      <input type="password" id="newUserPassword" placeholder="Password" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;">
+      <select id="newUserRole" style="width:100%;padding:10px;margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;">
+        <option value="user">User</option>
+        <option value="owner">Owner</option>
+      </select>
+      <button class="btn" style="width:100%;background:var(--accent);color:#fff;padding:10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:600;" onclick="submitNewUser()">Buat User</button>
     </div>
   </div>
 </div>
@@ -598,18 +710,87 @@ tr:hover td { background: var(--bg-tertiary); }
 <script>
 // ===== API CLIENT =====
 const API = '/api';
+let currentUser = null; // { id, email, full_name, role }
 
 async function apiFetch(path, opts = {}) {
-  const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json', ...opts.headers },
-    ...opts,
-  });
+  const token = localStorage.getItem('auth_token');
+  const headers = { 'Content-Type': 'application/json', ...opts.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(API + path, { ...opts, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('auth_token');
+    currentUser = null;
+    showLoginPage();
+    throw new Error('Session expired');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || res.statusText);
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+function showLoginPage() {
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+function showAppPage() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'flex';
+  // Show user info in sidebar
+  const sidebarUser = document.getElementById('sidebarUser');
+  if (currentUser) {
+    sidebarUser.style.display = 'flex';
+    document.getElementById('sidebarUserEmail').textContent = currentUser.email;
+    // Show Users nav for owners only
+    document.getElementById('navUsers').style.display = currentUser.role === 'owner' ? '' : 'none';
+  }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  btn.disabled = true;
+  errEl.textContent = '';
+
+  try {
+    const result = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('loginEmail').value,
+        password: document.getElementById('loginPassword').value,
+      }),
+    });
+
+    if (!result.ok) {
+      const err = await result.json().catch(() => ({ detail: 'Login gagal' }));
+      throw new Error(err.detail || 'Login gagal');
+    }
+
+    const data = await result.json();
+    localStorage.setItem('auth_token', data.access_token);
+    currentUser = data.user;
+    showAppPage();
+    loadApp();
+  } catch (err) {
+    errEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function handleLogout() {
+  localStorage.removeItem('auth_token');
+  currentUser = null;
+  showLoginPage();
 }
 
 // ===== STATE =====
@@ -1135,9 +1316,10 @@ function switchPage(page) {
   document.getElementById(`page-${page}`).classList.add('active');
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   if (page === 'compare') renderCompare();
-  // Hide compare bar when on compare page
+  if (page === 'users') renderUsers();
+  // Hide compare bar when on compare/users page
   const bar = document.getElementById('compareBar');
-  if (bar) bar.classList.toggle('show', page !== 'compare' && selectedCompare.size >= 2);
+  if (bar) bar.classList.toggle('show', page !== 'compare' && page !== 'users' && selectedCompare.size >= 2);
 }
 
 let currentFilter = 'all'; // 'all', 'tiktok', 'instagram'
@@ -1573,18 +1755,81 @@ async function scrapeAll() {
 }
 
 
-// ===== INIT =====
-(async function init() {
+// ===== USER MANAGEMENT (Owner) =====
+async function renderUsers() {
+  const container = document.getElementById('userListContainer');
+  if (!container) return;
   try {
-    // Try health check first
-    await apiFetch('/health');
+    const users = await apiFetch('/auth/users');
+    container.innerHTML = users.map(u => `
+      <div class="user-list-item">
+        <div>
+          <div style="font-weight:500;">${u.full_name || u.email}</div>
+          <div style="color:var(--text-muted);font-size:11px;">${u.email}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="user-role ${u.role}">${u.role}</span>
+          ${!u.is_active ? '<span style="color:var(--red);font-size:10px;">inactive</span>' : ''}
+          ${u.id !== currentUser.id && u.is_active ? `<button class="btn-user-delete" onclick="removeUser('${u.id}')" title="Nonaktifkan">&times;</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    container.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;">Gagal memuat users.</div>';
+  }
+}
 
-    // Load brands
+function openUserModal() {
+  document.getElementById('userModalOverlay').classList.add('active');
+  document.getElementById('newUserName').value = '';
+  document.getElementById('newUserEmail').value = '';
+  document.getElementById('newUserPassword').value = '';
+  document.getElementById('newUserRole').value = 'user';
+}
+
+function closeUserModal(e) {
+  if (e.target === e.currentTarget) document.getElementById('userModalOverlay').classList.remove('active');
+}
+
+async function submitNewUser() {
+  const name = document.getElementById('newUserName').value.trim();
+  const email = document.getElementById('newUserEmail').value.trim();
+  const password = document.getElementById('newUserPassword').value;
+  const role = document.getElementById('newUserRole').value;
+
+  if (!email || !password) { showToast('Email dan password wajib diisi', true); return; }
+
+  try {
+    await apiFetch('/auth/users', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, full_name: name, role }),
+    });
+    document.getElementById('userModalOverlay').classList.remove('active');
+    showToast('User berhasil ditambahkan');
+    renderUsers();
+  } catch (e) {
+    showToast('Gagal: ' + e.message, true);
+  }
+}
+
+async function removeUser(userId) {
+  if (!confirm('Nonaktifkan user ini?')) return;
+  try {
+    await apiFetch(`/auth/users/${userId}`, { method: 'DELETE' });
+    showToast('User dinonaktifkan');
+    renderUsers();
+  } catch (e) {
+    showToast('Gagal: ' + e.message, true);
+  }
+}
+
+// ===== INIT =====
+async function loadApp() {
+  try {
     brands = await apiFetch('/brands');
     renderBrands();
 
     if (brands.length === 0) {
-      // Auto-run setup if no brands
       showToast('Setting up... Membuat brand default.');
       await apiFetch('/setup', { method: 'POST' });
       brands = await apiFetch('/brands');
@@ -1595,11 +1840,26 @@ async function scrapeAll() {
       await selectBrand(brands[0].id);
     }
   } catch (e) {
-    console.error('Init failed:', e);
-    document.getElementById('topbarTitle').textContent = 'Dashboard — Offline';
-    document.getElementById('brandStatsGrid').innerHTML =
-      '<div style="padding:12px;color:var(--red);font-size:12px">Tidak bisa terhubung ke API server. Pastikan backend sudah berjalan.</div>';
+    console.error('Load app failed:', e);
   }
+}
+
+(async function init() {
+  // Check if already logged in
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    try {
+      const user = await apiFetch('/auth/me');
+      currentUser = user;
+      showAppPage();
+      loadApp();
+      return;
+    } catch (e) {
+      // Token invalid — show login
+      localStorage.removeItem('auth_token');
+    }
+  }
+  showLoginPage();
 })();
 </script>
 </body>

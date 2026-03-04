@@ -1276,9 +1276,8 @@ async function renderDetail(postId) {
         <tbody>
           ${snapshots.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Belum ada snapshot. Klik "Scrape Now" untuk mengambil data.</td></tr>' :
             snapshots.slice().reverse().map((s, i, arr) => {
-              const prev = arr[i + 1] || s;
-              const dv = s.views - prev.views;
-              const dl = s.likes - prev.likes;
+              const dv = s.views - (s.baseline_views || 0);
+              const dl = s.likes - (s.baseline_likes || 0);
               const dateStr = (s.recorded_at || '').slice(0, 10);
               return `<tr>
                 <td>${dateStr}</td>

@@ -448,6 +448,117 @@ tr:hover td { background: var(--bg-tertiary); }
 .sidebar-user .user-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; }
 .btn-logout:hover { color: var(--red); }
+
+/* ===== HAMBURGER MENU ===== */
+.hamburger {
+  display: none; background: none; border: none; color: var(--text-primary);
+  cursor: pointer; padding: 4px; line-height: 0;
+}
+.hamburger svg { width: 22px; height: 22px; }
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 89; backdrop-filter: blur(2px);
+}
+.sidebar-overlay.active { display: block; }
+
+/* ===== RESPONSIVE: MOBILE (<768px) ===== */
+@media (max-width: 767px) {
+  body { overflow: auto; }
+  .app { flex-direction: column; height: auto; min-height: 100vh; }
+
+  /* Sidebar: off-canvas drawer */
+  .sidebar {
+    position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; min-width: 280px;
+    z-index: 90; transition: left .25s ease;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+  }
+  .sidebar.open { left: 0; }
+
+  /* Hamburger visible */
+  .hamburger { display: block; }
+
+  /* Topbar */
+  .topbar { padding: 10px 16px; }
+  .topbar-title { font-size: 14px; }
+
+  /* Main content fills screen */
+  .main-content { width: 100%; overflow: visible; }
+
+  /* Page */
+  .page { overflow: visible !important; }
+  .page.active { display: flex; flex-direction: column; }
+
+  /* Dashboard: stack post list and detail vertically */
+  .dashboard-page { flex-direction: column; overflow: visible; }
+  .post-list-panel {
+    width: 100% !important; min-width: 0 !important;
+    border-right: none; border-bottom: 1px solid var(--border);
+    max-height: none; overflow: visible;
+  }
+  .post-list-scroll { max-height: 50vh; overflow-y: auto; }
+  .detail-panel { padding: 16px; overflow: visible; }
+
+  /* Stat cards: 2 columns on mobile */
+  .stat-cards { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 12px; }
+  .stat-card-value { font-size: 18px; }
+
+  /* Charts: single column */
+  .charts-grid { grid-template-columns: 1fr; }
+
+  /* Post list row */
+  .post-row { padding: 10px 12px; gap: 8px; }
+  .post-thumb { width: 36px; height: 44px; }
+
+  /* Compare page */
+  .compare-page { padding: 16px !important; }
+  .compare-grid { grid-template-columns: 1fr !important; }
+  .compare-selector { gap: 6px; }
+
+  /* Users page */
+  #page-users { padding: 16px !important; }
+  #page-users > div { max-width: 100% !important; }
+
+  /* Modal: full-width on mobile */
+  .modal { width: calc(100vw - 32px) !important; max-width: none !important; max-height: 90vh; }
+  .modal-overlay { padding: 16px; }
+
+  /* Selection bar */
+  .selection-bar { left: 16px; right: 16px; transform: none; bottom: 16px; }
+
+  /* Scraping overlay */
+  .scraping-overlay { left: 16px; right: 16px; bottom: 16px; }
+
+  /* Login card */
+  .login-card { width: calc(100vw - 48px); padding: 28px 20px; }
+
+  /* Brand stats grid */
+  .brand-stats { padding: 12px; }
+  .brand-stats-grid { gap: 6px; }
+  .stat-mini { padding: 8px 10px; }
+  .stat-mini-value { font-size: 16px; }
+
+  /* Table scroll */
+  .snapshot-table-box { overflow-x: auto; }
+  table { min-width: 500px; }
+
+  /* Filter bar */
+  .post-list-filter { padding: 8px 12px; flex-wrap: wrap; gap: 4px; }
+
+  /* Toast */
+  .toast { left: 16px; right: 16px; bottom: 16px; }
+}
+
+/* ===== RESPONSIVE: TABLET (768px - 1024px) ===== */
+@media (min-width: 768px) and (max-width: 1024px) {
+  :root {
+    --sidebar-w: 200px;
+    --postlist-w: 300px;
+  }
+  .stat-cards { grid-template-columns: repeat(2, 1fr); }
+  .detail-panel { padding: 16px; }
+  .stat-card-value { font-size: 20px; }
+}
 </style>
 </head>
 <body>
@@ -513,9 +624,15 @@ tr:hover td { background: var(--bg-tertiary); }
     </div>
   </aside>
 
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
   <!-- MAIN -->
   <div class="main-content">
     <div class="topbar">
+      <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
       <div class="topbar-title" id="topbarTitle">Dashboard — Roove</div>
     </div>
 
@@ -791,6 +908,16 @@ function handleLogout() {
   localStorage.removeItem('auth_token');
   currentUser = null;
   showLoginPage();
+}
+
+// ===== MOBILE SIDEBAR =====
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('active');
 }
 
 // ===== STATE =====
@@ -1283,6 +1410,9 @@ async function selectBrand(id) {
   document.getElementById('topbarTitle').textContent = `Dashboard — ${brand?.name || ''}`;
   renderBrands();
   renderBrandStats();
+  closeSidebar();
+  // Switch to dashboard when selecting brand
+  switchPage('dashboard');
 
   // Fetch posts for this brand
   try {
@@ -1309,6 +1439,11 @@ async function selectPost(id) {
   if (rows[idx]) rows[idx].classList.add('active');
 
   await renderDetail(id);
+  // On mobile, scroll to detail panel
+  if (window.innerWidth < 768) {
+    const dp = document.getElementById('detailPanel');
+    if (dp) dp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function switchPage(page) {
@@ -1320,6 +1455,8 @@ function switchPage(page) {
   // Hide compare bar when on compare/users page
   const bar = document.getElementById('compareBar');
   if (bar) bar.classList.toggle('show', page !== 'compare' && page !== 'users' && selectedCompare.size >= 2);
+  // Close sidebar on mobile
+  closeSidebar();
 }
 
 let currentFilter = 'all'; // 'all', 'tiktok', 'instagram'

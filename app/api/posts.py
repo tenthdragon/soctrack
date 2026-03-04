@@ -5,7 +5,7 @@ import re
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
@@ -417,6 +417,57 @@ def scrape_post_now(
         background_tasks.add_task(_scrape_tiktok_and_save, post.id, post.tiktok_url)
 
     return {"message": "Scraping started", "post_id": str(post.id)}
+
+
+class BatchScrapeRequest(BaseModel):
+    post_ids: List[uuid.UUID]
+
+
+@router.post("/posts/batch-scrape", status_code=202)
+def batch_scrape_posts(
+    data: BatchScrapeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Scrape a specific list of posts sequentially using 1 browser session.
+    Used by frontend after bulk URL submission — much more efficient than
+    triggering individual scrapes (which each launch their own browser).
+    """
+    posts = db.query(Post).filter(Post.id.in_(data.post_ids), Post.is_active == True).all()
+    if not posts:
+        raise HTTPException(status_code=404, detail="No matching posts found")
+
+    tiktok_posts = [p for p in posts if p.platform == "tiktok"]
+    ig_posts = [p for p in posts if p.platform == "instagram"]
+
+    async def _run_batch():
+        from scraper.batch_sync import _sync_tiktok_posts, _sync_instagram_posts, SyncResult
+        from app.database import SessionLocal
+        batch_db = SessionLocal()
+        result = SyncResult(total=len(posts))
+        try:
+            if ig_posts:
+                await _sync_instagram_posts(batch_db, ig_posts, result)
+            if tiktok_posts:
+                await _sync_tiktok_posts(batch_db, tiktok_posts, result)
+            logger.info(
+                f"Batch scrape complete: {result.success} success, "
+                f"{result.failed} failed out of {len(posts)}"
+            )
+        except Exception as e:
+            logger.error(f"Batch scrape failed: {e}")
+        finally:
+            batch_db.close()
+
+    background_tasks.add_task(_run_batch)
+
+    return {
+        "message": f"Batch scrape started for {len(posts)} posts",
+        "count": len(posts),
+        "post_ids": [str(p.id) for p in posts],
+    }
 
 
 @router.post("/brands/{brand_id}/scrape-all", status_code=202)

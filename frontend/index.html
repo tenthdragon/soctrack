@@ -1620,31 +1620,47 @@ async function submitModal() {
 
   closeModal();
 
-  // Add all URLs (no auto-scrape for bulk, we'll sync after)
+  // Add all URLs — collect post_ids for batch scrape
   let successCount = 0;
   let failCount = 0;
+  let dupCount = 0;
+  const newPostIds = [];
   const isBulk = urls.length > 1;
-  showScrapingOverlay(`Menambahkan ${urls.length} post...`, 'Menambahkan URL...');
+  showScrapingOverlay(`Menambahkan ${urls.length} URL...`, 'Menambahkan URL...');
 
   for (let i = 0; i < urls.length; i++) {
     try {
-      await apiFetch('/posts/add-by-link', {
+      const resp = await apiFetch('/posts/add-by-link', {
         method: 'POST',
-        body: JSON.stringify({ url: urls[i], brand_id: brandId, auto_scrape: !isBulk }),
+        body: JSON.stringify({ url: urls[i], brand_id: brandId, auto_scrape: false }),
       });
       successCount++;
+      if (resp.post_id) newPostIds.push(resp.post_id);
     } catch (e) {
-      failCount++;
+      if (e.message && e.message.includes('already')) {
+        dupCount++;
+      } else {
+        failCount++;
+      }
       console.error(`Failed to add ${urls[i]}: ${e.message}`);
     }
-    document.getElementById('scrapingDetail').textContent = `${i + 1}/${urls.length} URL diproses (${successCount} berhasil)`;
+    document.getElementById('scrapingDetail').textContent = `${i + 1}/${urls.length} URL diproses (${successCount} berhasil${dupCount > 0 ? `, ${dupCount} duplikat` : ''})`;
   }
 
   if (successCount === 0) {
     hideScrapingOverlay();
-    showToast(`Semua ${failCount} URL gagal ditambahkan`, true);
+    const reasons = [];
+    if (dupCount > 0) reasons.push(`${dupCount} sudah ada`);
+    if (failCount > 0) reasons.push(`${failCount} gagal`);
+    showToast(`Tidak ada URL baru ditambahkan (${reasons.join(', ')})`, true);
     return;
   }
+
+  // Show summary toast
+  const parts = [`${successCount} post baru ditambahkan`];
+  if (dupCount > 0) parts.push(`${dupCount} sudah ada`);
+  if (failCount > 0) parts.push(`${failCount} gagal`);
+  showToast(parts.join(', '));
 
   // Switch to brand and refresh post list
   if (brandId !== currentBrand) {
@@ -1655,22 +1671,27 @@ async function submitModal() {
     renderBrandStats();
   }
 
-  // Trigger single batch sync for the brand (1 browser, sequential scraping)
-  try {
-    await apiFetch(`/brands/${brandId}/sync`, { method: 'POST' });
-  } catch (e) {
-    console.error('Sync trigger failed:', e);
-  }
+  // Trigger batch scrape for ONLY the newly added posts (1 browser, sequential)
+  if (newPostIds.length > 0) {
+    showScrapingOverlay(
+      `Scraping ${newPostIds.length} post${newPostIds.length > 1 ? 's' : ''}...`,
+      'Biasanya selesai dalam 30-60 detik per post'
+    );
+    try {
+      await apiFetch('/posts/batch-scrape', {
+        method: 'POST',
+        body: JSON.stringify({ post_ids: newPostIds }),
+      });
+    } catch (e) {
+      console.error('Batch scrape trigger failed:', e);
+    }
 
-  // Start polling to track sync progress
-  const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
-  if (pendingPosts.length > 0) {
-    pendingPosts.forEach(p => scrapingPosts.add(p.id));
+    // Start polling to track scrape progress
+    newPostIds.forEach(pid => scrapingPosts.add(pid));
     pollInitialCount = scrapingPosts.size;
-    startPolling(pendingPosts[0].id);
+    startPolling(newPostIds[0]);
   } else {
     hideScrapingOverlay();
-    showToast(`${successCount} post ditambahkan${failCount > 0 ? `, ${failCount} gagal` : ''}`);
   }
 }
 

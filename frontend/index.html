@@ -217,59 +217,6 @@ td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 tr:hover td { background: var(--bg-tertiary); }
 
 /* ===== PAGE: DISCOVERY ===== */
-.discovery-page { flex-direction: column; padding: 24px; overflow-y: auto; }
-.discovery-search-box {
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
-}
-.discovery-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-.discovery-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
-.search-row { display: flex; gap: 10px; }
-.search-input {
-  flex: 1; padding: 10px 16px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); background: var(--bg-tertiary);
-  color: var(--text-primary); font-size: 14px; outline: none;
-}
-.search-input:focus { border-color: var(--accent); }
-.search-input::placeholder { color: var(--text-muted); }
-
-.discovery-tags { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.tag {
-  padding: 5px 12px; border-radius: 14px; font-size: 11px;
-  background: var(--bg-tertiary); color: var(--text-secondary);
-  cursor: pointer; transition: all .15s;
-}
-.tag:hover { background: var(--accent); color: #fff; }
-
-.discovery-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.discovery-card {
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden; transition: all .2s;
-}
-.discovery-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.discovery-card-thumb {
-  height: 160px; background: linear-gradient(135deg, var(--bg-tertiary), var(--border));
-  display: flex; align-items: center; justify-content: center; font-size: 40px;
-  position: relative;
-}
-.discovery-card-views {
-  position: absolute; bottom: 8px; right: 8px;
-  background: rgba(0,0,0,0.7); padding: 3px 8px; border-radius: 4px;
-  font-size: 12px; font-weight: 600;
-}
-.discovery-card-body { padding: 14px; }
-.discovery-card-title { font-size: 13px; font-weight: 500; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.discovery-card-creator { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
-.discovery-card-stats { display: flex; gap: 12px; font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; }
-.discovery-card-stats span { display: flex; align-items: center; gap: 4px; }
-.btn-track {
-  width: 100%; padding: 8px; border-radius: var(--radius-sm); font-size: 12px;
-  font-weight: 600; cursor: pointer; border: 1px solid var(--accent);
-  background: transparent; color: var(--accent); transition: all .15s;
-}
-.btn-track:hover { background: var(--accent); color: #fff; }
-.btn-track.tracked { background: var(--green); border-color: var(--green); color: #fff; cursor: default; }
-
 /* ===== PAGE: COMPARE ===== */
 .compare-page { flex-direction: column; padding: 24px; overflow-y: auto; }
 .compare-header { margin-bottom: 20px; }
@@ -471,10 +418,6 @@ tr:hover td { background: var(--bg-tertiary); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Dashboard
       </div>
-      <div class="nav-item" data-page="discovery" onclick="switchPage('discovery')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        FYP Scanner
-      </div>
       <div class="nav-item" data-page="compare" onclick="switchPage('compare')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
         Compare
@@ -523,33 +466,6 @@ tr:hover td { background: var(--bg-tertiary); }
         </div>
         <div class="detail-panel" id="detailPanel"></div>
       </div>
-    </div>
-
-    <!-- PAGE: DISCOVERY -->
-    <div class="page discovery-page" id="page-discovery">
-      <div class="discovery-search-box">
-        <div class="detail-platform" style="margin-bottom: 12px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.88-2.88A2.89 2.89 0 019.5 12.4v-3.5a6.37 6.37 0 00-6.38 6.38 6.37 6.37 0 006.38 6.38 6.37 6.37 0 006.38-6.38V9.42a8.29 8.29 0 004.84 1.55V7.52a4.84 4.84 0 01-1.13-.83z"/></svg>
-          TikTok Discovery
-        </div>
-        <div class="discovery-title">FYP Scanner</div>
-        <div class="discovery-subtitle">Cari konten trending di niche kamu. Temukan kompetitor baru dan konten viral.</div>
-        <div class="search-row">
-          <input type="text" class="search-input" id="discoverySearch" placeholder="Masukkan keyword atau hashtag..." value="collagen drink">
-          <button class="btn btn-tiktok" onclick="runDiscovery()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-            Scan FYP
-          </button>
-        </div>
-        <div class="discovery-tags">
-          <span class="tag" onclick="setDiscoveryKeyword('collagen drink')">collagen drink</span>
-          <span class="tag" onclick="setDiscoveryKeyword('minuman kolagen')">minuman kolagen</span>
-          <span class="tag" onclick="setDiscoveryKeyword('#skincareRoutine')">#skincareRoutine</span>
-          <span class="tag" onclick="setDiscoveryKeyword('skincare viral')">skincare viral</span>
-          <span class="tag" onclick="setDiscoveryKeyword('#beautyTikTok')">#beautyTikTok</span>
-        </div>
-      </div>
-      <div class="discovery-results" id="discoveryResults"></div>
     </div>
 
     <!-- PAGE: COMPARE -->
@@ -704,7 +620,6 @@ let currentPosts = [];
 let currentSnapshots = {};  // postId -> snapshots[]
 let selectedCompare = new Set();
 let charts = {};
-let discoveryResults = [];
 
 // ===== HELPERS =====
 function formatNum(n) {
@@ -1096,30 +1011,6 @@ function renderCharts(snapshots) {
 }
 
 // ===== RENDER: DISCOVERY =====
-function renderDiscovery() {
-  const container = document.getElementById('discoveryResults');
-  if (discoveryResults.length === 0) {
-    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>Masukkan keyword dan klik "Scan FYP" untuk mulai pencarian.</p></div>';
-    return;
-  }
-  container.innerHTML = discoveryResults.map((d, i) => `
-    <div class="discovery-card">
-      <div class="discovery-card-thumb">
-        🎬
-        <div class="discovery-card-views">${formatNum(d.views)} views</div>
-      </div>
-      <div class="discovery-card-body">
-        <div class="discovery-card-title">${d.title || 'Untitled'}</div>
-        <div class="discovery-card-creator">@${d.creator || 'unknown'}</div>
-        <div class="discovery-card-stats">
-          <span>❤️ ${formatNum(d.likes)}</span>
-        </div>
-        <button class="btn-track" id="trackBtn${i}" onclick="trackDiscovery('${d.url}', ${i})">Track This</button>
-      </div>
-    </div>
-  `).join('');
-}
-
 // ===== RENDER: COMPARE =====
 async function renderCompare() {
   const selector = document.getElementById('compareSelector');
@@ -1243,7 +1134,6 @@ function switchPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
-  if (page === 'discovery') renderDiscovery();
   if (page === 'compare') renderCompare();
   // Hide compare bar when on compare page
   const bar = document.getElementById('compareBar');
@@ -1682,7 +1572,6 @@ async function scrapeAll() {
   }
 }
 
-function setDiscoveryKeyword(kw) { document.getElementById('discoverySearch').value = kw; }
 
 // ===== INIT =====
 (async function init() {

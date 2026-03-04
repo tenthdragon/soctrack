@@ -35,10 +35,6 @@ app.include_router(posts.router, prefix="/api", tags=["Posts"])
 app.include_router(snapshots.router, prefix="/api", tags=["Snapshots & Metrics"])
 app.include_router(discovery.router, prefix="/api", tags=["Discovery"])
 
-# Serve frontend static files
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
-
-
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "app": "soctrack", "version": "1.0.0"}
@@ -80,3 +76,7 @@ def initial_setup(db: Session = Depends(get_db)):
         "brand_name": roove.name,
         "message": "Setup complete",
     }
+
+
+# Serve frontend static files — MUST be last (catch-all)
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

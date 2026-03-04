@@ -285,37 +285,88 @@ class InstagramScraper:
 
     async def _scrape_post_from_html(self, page, shortcode: str) -> IGPostMetrics:
         """Extract post metrics from the page HTML/meta tags as fallback."""
-        # Try meta tags
-        og_title = await page.evaluate("""
+        # Try to extract from embedded JSON in page source first
+        embedded = await page.evaluate("""
             () => {
-                const el = document.querySelector('meta[property="og:title"]');
-                return el ? el.content : '';
-            }
-        """)
-        og_desc = await page.evaluate("""
-            () => {
-                const el = document.querySelector('meta[property="og:description"]');
-                return el ? el.content : '';
+                // Look for __additionalDataLoaded or shared data
+                const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+                for (const s of scripts) {
+                    try {
+                        const d = JSON.parse(s.textContent);
+                        if (d.interactionStatistic || d.commentCount) return d;
+                    } catch(e) {}
+                }
+                return null;
             }
         """)
 
-        # Try to parse likes/comments from description like "123 likes, 45 comments"
         likes = 0
         comments = 0
-        if og_desc:
-            likes_match = re.search(r'([\d,]+)\s*likes?', og_desc)
-            comments_match = re.search(r'([\d,]+)\s*comments?', og_desc)
-            if likes_match:
-                likes = int(likes_match.group(1).replace(",", ""))
-            if comments_match:
-                comments = int(comments_match.group(1).replace(",", ""))
+        author = ""
+        caption = ""
+
+        if embedded:
+            # LD+JSON format has interactionStatistic array
+            for stat in (embedded.get("interactionStatistic") or []):
+                itype = stat.get("interactionType", "")
+                count = stat.get("userInteractionCount", 0)
+                if "Like" in itype:
+                    likes = int(count)
+                elif "Comment" in itype:
+                    comments = int(count)
+            author = (embedded.get("author") or {}).get("identifier", {}).get("value", "")
+            caption = embedded.get("articleBody") or embedded.get("name") or ""
+
+        # Fallback to meta tags if LD+JSON didn't work
+        if likes == 0 and comments == 0:
+            og_desc = await page.evaluate("""
+                () => {
+                    const el = document.querySelector('meta[property="og:description"]');
+                    return el ? el.content : '';
+                }
+            """)
+
+            if og_desc:
+                # Case-insensitive, supports formats: "123 likes", "1,234 Likes", "12K likes"
+                likes_match = re.search(r'([\d,\.]+[KkMm]?)\s*likes?', og_desc, re.IGNORECASE)
+                comments_match = re.search(r'([\d,\.]+[KkMm]?)\s*comments?', og_desc, re.IGNORECASE)
+                if likes_match:
+                    likes = self._parse_compact_number(likes_match.group(1))
+                if comments_match:
+                    comments = self._parse_compact_number(comments_match.group(1))
+
+        if not caption:
+            og_title = await page.evaluate("""
+                () => {
+                    const el = document.querySelector('meta[property="og:title"]');
+                    return el ? el.content : '';
+                }
+            """)
+            caption = og_title or ""
 
         return IGPostMetrics(
             likes=likes,
             comments=comments,
-            title=og_title or og_desc or "",
+            title=caption[:500] if caption else "",
+            author=author,
             shortcode=shortcode,
         )
+
+    @staticmethod
+    def _parse_compact_number(s: str) -> int:
+        """Parse compact numbers like '1.2K', '3.5M', '1,234' into integers."""
+        s = s.strip().replace(",", "")
+        multiplier = 1
+        if s[-1:].upper() == 'K':
+            multiplier = 1000
+            s = s[:-1]
+        elif s[-1:].upper() == 'M':
+            multiplier = 1_000_000
+            s = s[:-1]
+        try:
+            return int(float(s) * multiplier)
+        except ValueError:
+            return 0
 
     # ── Discover Posts from Profile ───────────────────────
 

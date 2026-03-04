@@ -285,9 +285,7 @@ tr:hover td { background: var(--bg-tertiary); }
 .compare-chip.selected { border-color: var(--accent); color: var(--accent); background: rgba(139,92,246,0.1); }
 .compare-chip:hover:not(.selected) { border-color: var(--text-muted); }
 
-.compare-grid { display: grid; gap: 20px; }
-.compare-grid-2 { grid-template-columns: 1fr 1fr; }
-.compare-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.compare-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .compare-col {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 20px;
@@ -981,8 +979,8 @@ async function renderCompare() {
     const ids = selPosts.map(p => p.id).join(',');
     const compareData = await apiFetch(`/compare?post_ids=${ids}`);
 
-    grid.className = `compare-grid compare-grid-${Math.min(compareData.length, 3)}`;
-    grid.innerHTML = compareData.slice(0, 3).map((c, i) => {
+    grid.className = 'compare-grid';
+    grid.innerHTML = compareData.map((c, i) => {
       const brand = selPosts.find(p => p.id === c.post_id)?.brand || {};
       return `
         <div class="compare-col">
@@ -1007,7 +1005,7 @@ async function renderCompare() {
     }).join('');
 
     // Render compare charts
-    compareData.slice(0, 3).forEach((c, i) => {
+    compareData.forEach((c, i) => {
       const el = document.getElementById(`compareChart${i}`);
       if (!el || !c.snapshots || c.snapshots.length === 0) return;
       const brand = selPosts.find(p => p.id === c.post_id)?.brand || {};
@@ -1073,6 +1071,9 @@ function switchPage(page) {
   document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   if (page === 'discovery') renderDiscovery();
   if (page === 'compare') renderCompare();
+  // Hide compare bar when on compare page
+  const bar = document.getElementById('compareBar');
+  if (bar) bar.classList.toggle('show', page !== 'compare' && selectedCompare.size >= 2);
 }
 
 function filterPosts(type, el) {

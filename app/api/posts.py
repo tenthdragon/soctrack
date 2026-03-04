@@ -481,9 +481,9 @@ def batch_scrape_posts(
     background_tasks.add_task(_run_batch)
 
     return {
-        "message": f"Batch scrape started for {len(posts)} posts",
-        "count": len(posts),
-        "post_ids": [str(p.id) for p in posts],
+        "message": f"Batch scrape started for {count} posts",
+        "count": count,
+        "post_ids": [str(pid) for pid in post_ids],
     }
 
 

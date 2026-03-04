@@ -348,6 +348,15 @@ tr:hover td { background: var(--bg-tertiary); }
 .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
 
+/* ===== ADD POST BUTTON ===== */
+.btn-add-post {
+  margin-left: auto; padding: 5px 14px; border-radius: 14px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent);
+  color: #fff; transition: all .15s;
+}
+.btn-add-post:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+
 /* ===== SCRAPING ANIMATION ===== */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -457,12 +466,6 @@ tr:hover td { background: var(--bg-tertiary); }
   <div class="main-content">
     <div class="topbar">
       <div class="topbar-title" id="topbarTitle">Dashboard — Roove</div>
-      <div class="topbar-actions">
-        <button class="btn btn-outline" onclick="openModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Tambah Post
-        </button>
-      </div>
     </div>
 
     <!-- PAGE: DASHBOARD -->
@@ -476,6 +479,7 @@ tr:hover td { background: var(--bg-tertiary); }
             <span class="filter-chip active" onclick="filterPosts('all', this)">All</span>
             <span class="filter-chip" onclick="filterPosts('views', this)">Top Views</span>
             <span class="filter-chip" onclick="filterPosts('gains', this)">Top Gains</span>
+            <button class="btn-add-post" onclick="openModal()">+ Tambah Post</button>
           </div>
           <div class="post-list-scroll" id="postListScroll"></div>
         </div>
@@ -535,55 +539,33 @@ tr:hover td { background: var(--bg-tertiary); }
       <h3>Tambah Post</h3>
       <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
-    <div class="modal-tabs">
-      <div class="modal-tab active" onclick="switchModalTab(0, this)">By Link</div>
-      <div class="modal-tab" onclick="switchModalTab(1, this)">By Account</div>
-      <div class="modal-tab" onclick="switchModalTab(2, this)">Discovery</div>
-    </div>
     <div class="modal-body">
-      <!-- Tab: By Link -->
-      <div class="modal-tab-content active" id="modalTab0">
-        <div class="form-group">
-          <label class="form-label">URL Post TikTok</label>
-          <input type="text" class="form-input" id="inputPostUrl" placeholder="https://tiktok.com/@roove/video/123456 atau vt.tiktok.com/...">
-          <div class="form-hint">Mendukung URL lengkap dan short URL (vt.tiktok.com). Post otomatis di-assign ke brand berdasarkan username.</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Brand (opsional)</label>
-          <select class="form-select" id="selectLinkBrand">
-            <option value="">Auto-detect dari URL</option>
-          </select>
+      <div class="form-group">
+        <label class="form-label">URL Post TikTok</label>
+        <textarea class="form-input" id="inputPostUrls" rows="5" placeholder="Paste satu atau beberapa URL (satu per baris)&#10;&#10;Contoh:&#10;https://vt.tiktok.com/ZSmo8dQtN/&#10;https://www.tiktok.com/@roove.co.id/video/7234567890123456789" style="resize:vertical;min-height:100px;font-size:12px;line-height:1.6"></textarea>
+        <div class="form-hint">Mendukung URL lengkap dan short URL (vt.tiktok.com). Paste banyak URL sekaligus, satu per baris.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Brand</label>
+        <div style="display:flex;gap:8px;">
+          <select class="form-select" id="selectBrand" style="flex:1"></select>
+          <button class="btn btn-outline" onclick="toggleNewBrand()" style="white-space:nowrap;font-size:12px;padding:8px 12px;">+ Brand Baru</button>
         </div>
       </div>
-      <!-- Tab: By Account -->
-      <div class="modal-tab-content" id="modalTab1">
-        <div class="form-group">
-          <label class="form-label">Username TikTok</label>
-          <input type="text" class="form-input" id="inputAccountUsername" placeholder="@username">
-          <div class="form-hint">Sistem akan auto-discover semua post dari akun ini</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Brand</label>
-          <select class="form-select" id="selectAccountBrand"></select>
-        </div>
-      </div>
-      <!-- Tab: Discovery -->
-      <div class="modal-tab-content" id="modalTab2">
-        <div class="form-group">
-          <label class="form-label">Keyword / Hashtag</label>
-          <input type="text" class="form-input" id="inputDiscoveryKeyword" placeholder='contoh: "collagen drink", "#skincare"'>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Max Results</label>
-          <select class="form-select" id="selectDiscoveryMax">
-            <option value="50">50</option>
-            <option value="100">100</option>
+      <div class="form-group" id="newBrandGroup" style="display:none;">
+        <label class="form-label">Nama Brand Baru</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" class="form-input" id="inputNewBrandName" placeholder="Nama brand" style="flex:1">
+          <input type="text" class="form-input" id="inputNewBrandUsername" placeholder="@username" style="flex:1">
+          <select class="form-select" id="selectNewBrandType" style="width:120px">
+            <option value="own">Own</option>
+            <option value="competitor">Competitor</option>
           </select>
         </div>
-        <div class="form-hint">Hasil akan muncul di halaman FYP Scanner. Kamu bisa pilih post mana yang ingin di-track.</div>
       </div>
     </div>
     <div class="modal-footer">
+      <div id="modalUrlCount" style="flex:1;font-size:11px;color:var(--text-muted)"></div>
       <button class="btn btn-outline" onclick="closeModal()">Batal</button>
       <button class="btn btn-primary" onclick="submitModal()">Mulai Tracking</button>
     </div>
@@ -740,14 +722,9 @@ function renderBrands() {
 }
 
 function updateBrandSelects() {
-  const linkSelect = document.getElementById('selectLinkBrand');
-  const acctSelect = document.getElementById('selectAccountBrand');
-  if (linkSelect) {
-    linkSelect.innerHTML = '<option value="">Auto-detect dari URL</option>' +
-      brands.map(b => `<option value="${b.id}">${b.logo_emoji || '📦'} ${b.name}</option>`).join('');
-  }
-  if (acctSelect) {
-    acctSelect.innerHTML = brands.map(b => `<option value="${b.id}">${b.logo_emoji || '📦'} ${b.name}</option>`).join('');
+  const sel = document.getElementById('selectBrand');
+  if (sel) {
+    sel.innerHTML = brands.map((b, i) => `<option value="${b.id}" ${b.id === currentBrand ? 'selected' : ''}>${b.logo_emoji || '📦'} ${b.name} ${b.is_competitor ? '(Competitor)' : ''}</option>`).join('');
   }
 }
 
@@ -1124,74 +1101,108 @@ function goToCompare() { switchPage('compare'); }
 function openModal() {
   document.getElementById('modalOverlay').classList.add('active');
   updateBrandSelects();
+  document.getElementById('newBrandGroup').style.display = 'none';
+  document.getElementById('inputPostUrls').value = '';
+  updateUrlCount();
 }
 function closeModal(e) {
   if (!e || e.target === e.currentTarget) document.getElementById('modalOverlay').classList.remove('active');
 }
-function switchModalTab(i, el) {
-  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.modal-tab-content').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById(`modalTab${i}`).classList.add('active');
+
+function toggleNewBrand() {
+  const group = document.getElementById('newBrandGroup');
+  group.style.display = group.style.display === 'none' ? 'block' : 'none';
 }
 
+function updateUrlCount() {
+  const text = document.getElementById('inputPostUrls').value.trim();
+  const urls = text ? text.split('\n').filter(u => u.trim().length > 0) : [];
+  const counter = document.getElementById('modalUrlCount');
+  counter.textContent = urls.length > 0 ? `${urls.length} URL${urls.length > 1 ? 's' : ''} terdeteksi` : '';
+}
+
+// Attach URL counter
+document.addEventListener('DOMContentLoaded', () => {
+  const textarea = document.getElementById('inputPostUrls');
+  if (textarea) textarea.addEventListener('input', updateUrlCount);
+});
+
 async function submitModal() {
-  const activeTab = document.querySelector('.modal-tab.active');
-  const tabIndex = [...document.querySelectorAll('.modal-tab')].indexOf(activeTab);
+  const text = document.getElementById('inputPostUrls').value.trim();
+  const urls = text.split('\n').map(u => u.trim()).filter(u => u.length > 0);
 
-  try {
-    if (tabIndex === 0) {
-      // By Link
-      const url = document.getElementById('inputPostUrl').value.trim();
-      if (!url) { showToast('Masukkan URL TikTok', true); return; }
-      const brandId = document.getElementById('selectLinkBrand').value || undefined;
-      const body = { tiktok_url: url };
-      if (brandId) body.brand_id = brandId;
-      await apiFetch('/posts/add-by-link', { method: 'POST', body: JSON.stringify(body) });
-      showToast('Post ditambahkan! Scraping dimulai...');
-      document.getElementById('inputPostUrl').value = '';
+  if (urls.length === 0) { showToast('Masukkan minimal 1 URL TikTok', true); return; }
 
-    } else if (tabIndex === 1) {
-      // By Account
-      const username = document.getElementById('inputAccountUsername').value.trim();
-      const brandId = document.getElementById('selectAccountBrand').value;
-      if (!username || !brandId) { showToast('Isi username dan pilih brand', true); return; }
-      await apiFetch('/posts/add-by-account', { method: 'POST', body: JSON.stringify({ tiktok_username: username, brand_id: brandId }) });
-      showToast('Account discovery dimulai...');
-      document.getElementById('inputAccountUsername').value = '';
+  // Determine brand
+  let brandId = document.getElementById('selectBrand').value;
 
-    } else if (tabIndex === 2) {
-      // Discovery
-      const keyword = document.getElementById('inputDiscoveryKeyword').value.trim();
-      if (!keyword) { showToast('Masukkan keyword', true); return; }
-      const maxResults = parseInt(document.getElementById('selectDiscoveryMax').value);
-      showToast('Scanning FYP...');
-      closeModal();
-      const results = await apiFetch('/discovery/search', { method: 'POST', body: JSON.stringify({ keyword, max_results: maxResults }) });
-      discoveryResults = results.results || results || [];
-      switchPage('discovery');
-      renderDiscovery();
-      showToast(`Ditemukan ${discoveryResults.length} post`);
+  // Create new brand if needed
+  const newBrandGroup = document.getElementById('newBrandGroup');
+  if (newBrandGroup.style.display !== 'none') {
+    const newName = document.getElementById('inputNewBrandName').value.trim();
+    if (!newName) { showToast('Masukkan nama brand baru', true); return; }
+    const newUsername = document.getElementById('inputNewBrandUsername').value.trim();
+    const isComp = document.getElementById('selectNewBrandType').value === 'competitor';
+    try {
+      const newBrand = await apiFetch('/brands', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newName,
+          tiktok_username: newUsername ? (newUsername.startsWith('@') ? newUsername : '@' + newUsername) : null,
+          is_competitor: isComp,
+          color: isComp ? '#ec4899' : '#8B5CF6',
+          logo_emoji: isComp ? '🏷️' : '📦',
+        }),
+      });
+      brandId = newBrand.id;
+      brands.push(newBrand);
+      renderBrands();
+      showToast(`Brand "${newName}" berhasil dibuat`);
+    } catch (e) {
+      showToast('Gagal buat brand: ' + e.message, true);
       return;
     }
-
-    closeModal();
-    // Reload current brand posts and start polling for scrape results
-    if (currentBrand) {
-      setTimeout(async () => {
-        currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
-        renderPostList();
-        // Find the newly added post (latest one) and start polling
-        if (currentPosts.length > 0) {
-          const newest = currentPosts[currentPosts.length - 1];
-          startPolling(newest.id);
-          selectPost(newest.id);
-        }
-      }, 1500);
-    }
-  } catch (e) {
-    showToast(e.message, true);
   }
+
+  if (!brandId) { showToast('Pilih brand atau buat brand baru', true); return; }
+
+  closeModal();
+
+  // Add all URLs
+  let successCount = 0;
+  let failCount = 0;
+  showScrapingOverlay(`Menambahkan ${urls.length} post...`, 'Scraping akan dimulai setelah semua URL ditambahkan');
+
+  for (const url of urls) {
+    try {
+      await apiFetch('/posts/add-by-link', { method: 'POST', body: JSON.stringify({ tiktok_url: url, brand_id: brandId }) });
+      successCount++;
+      document.getElementById('scrapingDetail').textContent = `${successCount}/${urls.length} URL berhasil ditambahkan`;
+    } catch (e) {
+      failCount++;
+      console.error(`Failed to add ${url}: ${e.message}`);
+    }
+  }
+
+  // Refresh and start polling
+  showToast(`${successCount} post ditambahkan${failCount > 0 ? `, ${failCount} gagal` : ''}. Scraping dimulai...`);
+
+  // Switch to brand if different
+  if (brandId !== currentBrand) {
+    await selectBrand(brandId);
+  } else {
+    currentPosts = await apiFetch(`/brands/${currentBrand}/posts`);
+    renderPostList();
+    renderBrandStats();
+  }
+
+  // Start polling for all new posts
+  for (const p of currentPosts) {
+    if (!p.title || p.tiktok_video_id === 'pending') {
+      startPolling(p.id);
+    }
+  }
+  if (currentPosts.length > 0) selectPost(currentPosts[currentPosts.length - 1].id);
 }
 
 async function scrapeNow(postId) {
@@ -1201,35 +1212,6 @@ async function scrapeNow(postId) {
     renderPostList();
   } catch (e) {
     showToast('Gagal memulai scrape: ' + e.message, true);
-  }
-}
-
-async function trackDiscovery(url, index) {
-  const btn = document.getElementById(`trackBtn${index}`);
-  if (!currentBrand) { showToast('Pilih brand dulu di sidebar', true); return; }
-  try {
-    btn.textContent = 'Adding...';
-    await apiFetch('/posts/add-by-link', { method: 'POST', body: JSON.stringify({ tiktok_url: url, brand_id: currentBrand }) });
-    btn.textContent = '✓ Tracked';
-    btn.classList.add('tracked');
-    showToast('Post ditambahkan ke tracking!');
-  } catch (e) {
-    btn.textContent = 'Failed';
-    showToast(e.message, true);
-  }
-}
-
-async function runDiscovery() {
-  const keyword = document.getElementById('discoverySearch').value.trim();
-  if (!keyword) { showToast('Masukkan keyword', true); return; }
-  showToast('Scanning FYP... Proses ini membutuhkan waktu.');
-  try {
-    const results = await apiFetch('/discovery/search', { method: 'POST', body: JSON.stringify({ keyword, max_results: 50 }) });
-    discoveryResults = results.results || results || [];
-    renderDiscovery();
-    showToast(`Ditemukan ${discoveryResults.length} post`);
-  } catch (e) {
-    showToast('Discovery gagal: ' + e.message, true);
   }
 }
 

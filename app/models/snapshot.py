@@ -21,6 +21,11 @@ class Snapshot(Base):
     likes: Mapped[int] = mapped_column(BigInteger, default=0)
     comments: Mapped[int] = mapped_column(Integer, default=0)
     shares: Mapped[int] = mapped_column(Integer, default=0)
+    # Baseline: angka awal saat pertama kali di-scrape hari itu
+    baseline_views: Mapped[int] = mapped_column(BigInteger, default=0)
+    baseline_likes: Mapped[int] = mapped_column(BigInteger, default=0)
+    baseline_comments: Mapped[int] = mapped_column(Integer, default=0)
+    baseline_shares: Mapped[int] = mapped_column(Integer, default=0)
     recorded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

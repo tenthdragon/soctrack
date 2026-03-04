@@ -1,6 +1,6 @@
 """
 Cron Job: Nightly Batch Sync (replaces scrape_posts.py)
-Schedule: 30 0 * * * (setiap hari jam 00:30 WIB)
+Schedule: 0 16 * * * (setiap hari jam 23:00 WIB / 16:00 UTC)
 
 Uses profile-level batch sync:
 - Instagram: 1 API call per profile → updates ALL tracked posts

@@ -108,8 +108,9 @@ def extract_username(url: str) -> Optional[str]:
 def _upsert_snapshot(db: Session, post_id: uuid.UUID, views: int, likes: int, comments: int, shares: int):
     """
     Insert or update snapshot for today's date.
-    If a snapshot already exists for the same post on the same date, update it.
-    Otherwise create a new one.
+    If a snapshot already exists for the same post on the same date, update current values
+    but KEEP baseline (angka awal hari itu).
+    Otherwise create a new snapshot where baseline = current values.
     """
     from sqlalchemy import func, cast, Date
     today = datetime.utcnow().date()
@@ -124,24 +125,30 @@ def _upsert_snapshot(db: Session, post_id: uuid.UUID, views: int, likes: int, co
     )
 
     if existing:
+        # Update current values, keep baseline unchanged
         existing.views = views
         existing.likes = likes
         existing.comments = comments
         existing.shares = shares
         existing.recorded_at = datetime.utcnow()
-        logger.debug(f"Updated existing snapshot for post {post_id} on {today}")
+        logger.debug(f"Updated snapshot for post {post_id} on {today}: views={views} (baseline={existing.baseline_views})")
         return existing
     else:
+        # New day — baseline = current values
         snapshot = Snapshot(
             post_id=post_id,
             views=views,
             likes=likes,
             comments=comments,
             shares=shares,
+            baseline_views=views,
+            baseline_likes=likes,
+            baseline_comments=comments,
+            baseline_shares=shares,
             recorded_at=datetime.utcnow(),
         )
         db.add(snapshot)
-        logger.debug(f"Created new snapshot for post {post_id} on {today}")
+        logger.debug(f"Created new snapshot for post {post_id} on {today}: baseline={views}")
         return snapshot
 
 

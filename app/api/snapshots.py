@@ -25,6 +25,10 @@ class SnapshotResponse(BaseModel):
     likes: int
     comments: int
     shares: int
+    baseline_views: int = 0
+    baseline_likes: int = 0
+    baseline_comments: int = 0
+    baseline_shares: int = 0
     recorded_at: datetime
     created_at: datetime
 
@@ -92,25 +96,23 @@ def brand_stats(brand_id: uuid.UUID, db: Session = Depends(get_db)):
     deltas = {"views": 0, "likes": 0, "comments": 0, "shares": 0}
 
     for post_id in post_ids:
-        # Get latest 2 snapshots for delta calculation
+        # Get latest snapshot — delta is current minus baseline (intra-day gain)
         latest = (
             db.query(Snapshot)
             .filter(Snapshot.post_id == post_id)
             .order_by(Snapshot.recorded_at.desc())
-            .limit(2)
-            .all()
+            .first()
         )
         if latest:
-            totals["views"] += latest[0].views
-            totals["likes"] += latest[0].likes
-            totals["comments"] += latest[0].comments
-            totals["shares"] += latest[0].shares
+            totals["views"] += latest.views
+            totals["likes"] += latest.likes
+            totals["comments"] += latest.comments
+            totals["shares"] += latest.shares
 
-            if len(latest) >= 2:
-                deltas["views"] += latest[0].views - latest[1].views
-                deltas["likes"] += latest[0].likes - latest[1].likes
-                deltas["comments"] += latest[0].comments - latest[1].comments
-                deltas["shares"] += latest[0].shares - latest[1].shares
+            deltas["views"] += latest.views - latest.baseline_views
+            deltas["likes"] += latest.likes - latest.baseline_likes
+            deltas["comments"] += latest.comments - latest.baseline_comments
+            deltas["shares"] += latest.shares - latest.baseline_shares
 
     return BrandStats(
         total_views=totals["views"],

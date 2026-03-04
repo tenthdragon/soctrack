@@ -37,7 +37,7 @@ class SyncResult:
 
 
 def _upsert_snapshot(db: Session, post_id: uuid.UUID, views: int, likes: int, comments: int, shares: int):
-    """Insert or update snapshot for today."""
+    """Insert or update snapshot for today. Keeps baseline on same-day update."""
     from sqlalchemy import cast, Date
     today = datetime.utcnow().date()
 
@@ -63,6 +63,10 @@ def _upsert_snapshot(db: Session, post_id: uuid.UUID, views: int, likes: int, co
             likes=likes,
             comments=comments,
             shares=shares,
+            baseline_views=views,
+            baseline_likes=likes,
+            baseline_comments=comments,
+            baseline_shares=shares,
             recorded_at=datetime.utcnow(),
         ))
 

@@ -971,13 +971,12 @@ async function renderDetail(postId) {
     console.error('Failed to load snapshots:', e);
   }
 
-  const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { views: 0, likes: 0, comments: 0, shares: 0 };
-  const prev = snapshots.length > 1 ? snapshots[snapshots.length - 2] : latest;
+  const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { views: 0, likes: 0, comments: 0, shares: 0, baseline_views: 0, baseline_likes: 0, baseline_comments: 0, baseline_shares: 0 };
   const delta = {
-    views: latest.views - prev.views,
-    likes: latest.likes - prev.likes,
-    comments: latest.comments - prev.comments,
-    shares: latest.shares - prev.shares,
+    views: latest.views - (latest.baseline_views || 0),
+    likes: latest.likes - (latest.baseline_likes || 0),
+    comments: latest.comments - (latest.baseline_comments || 0),
+    shares: latest.shares - (latest.baseline_shares || 0),
   };
 
   panel.innerHTML = `

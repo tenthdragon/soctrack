@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SocTrack — Social Media Performance Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -547,6 +547,10 @@ tr:hover td { background: var(--bg-tertiary); }
 
   /* Toast */
   .toast { left: 16px; right: 16px; bottom: 16px; }
+
+  /* Prevent iOS Safari auto-zoom on input focus */
+  input, select, textarea { font-size: 16px !important; }
+  .login-card input { font-size: 16px !important; }
 }
 
 /* ===== RESPONSIVE: TABLET (768px - 1024px) ===== */

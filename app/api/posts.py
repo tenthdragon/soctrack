@@ -448,7 +448,8 @@ def batch_scrape_posts(
         raise HTTPException(status_code=404, detail="No matching posts found")
 
     # Pass only IDs to background task — it will re-query with its own session
-    post_ids = [str(pid) for pid in data.post_ids]
+    # Keep as UUID objects (not strings) so PostgreSQL IN query works correctly
+    post_ids = list(data.post_ids)
 
     async def _run_batch():
         from scraper.batch_sync import _sync_tiktok_posts, _sync_instagram_posts, SyncResult

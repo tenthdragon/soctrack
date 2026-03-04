@@ -1427,6 +1427,19 @@ async function selectBrand(id) {
     selectPost(currentPosts[0].id);
   }
 
+  // Auto-resume polling if any posts are still being scraped
+  const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
+  if (pendingPosts.length > 0 && !pollTimer) {
+    pendingPosts.forEach(p => scrapingPosts.add(p.id));
+    pollInitialCount = scrapingPosts.size;
+    showScrapingOverlay(
+      `Scraping ${pendingPosts.length} post${pendingPosts.length > 1 ? 's' : ''}...`,
+      'Mendeteksi proses scraping yang sedang berjalan...'
+    );
+    pollStartedAt = Date.now();
+    startPolling(pendingPosts[0].id);
+  }
+
   switchPage('dashboard');
 }
 

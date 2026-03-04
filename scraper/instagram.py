@@ -198,10 +198,13 @@ class InstagramScraper:
         if not shortcode:
             raise ValueError(f"Could not extract shortcode from URL: {url}")
 
+        # Detect if URL is a reel
+        is_reel = bool(re.search(r'/reel/', url, re.IGNORECASE))
+
         # Try visiting the post page and extracting embedded data
         page = await self._context.new_page()
         try:
-            post_url = f"https://www.instagram.com/p/{shortcode}/"
+            post_url = f"https://www.instagram.com/{'reel' if is_reel else 'p'}/{shortcode}/"
             await page.goto(post_url, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(4000)
 
@@ -277,13 +280,13 @@ class InstagramScraper:
                     return self._parse_post_node(shortcode_media)
 
             # Final fallback: extract from HTML source
-            logger.warning(f"API endpoints failed for /p/{shortcode}/, trying HTML extraction")
-            return await self._scrape_post_from_html(page, shortcode)
+            logger.warning(f"API endpoints failed for /{('reel' if is_reel else 'p')}/{shortcode}/, trying HTML extraction")
+            return await self._scrape_post_from_html(page, shortcode, is_reel=is_reel)
 
         finally:
             await page.close()
 
-    async def _scrape_post_from_html(self, page, shortcode: str) -> IGPostMetrics:
+    async def _scrape_post_from_html(self, page, shortcode: str, is_reel: bool = False) -> IGPostMetrics:
         """Extract post metrics from the page HTML/meta tags as fallback."""
         # Try to extract from embedded JSON in page source first
         embedded = await page.evaluate("""
@@ -302,6 +305,7 @@ class InstagramScraper:
 
         likes = 0
         comments = 0
+        views = 0
         author = ""
         caption = ""
 
@@ -314,6 +318,8 @@ class InstagramScraper:
                     likes = int(count)
                 elif "Comment" in itype:
                     comments = int(count)
+                elif "Watch" in itype or "View" in itype:
+                    views = int(count)
             author = (embedded.get("author") or {}).get("identifier", {}).get("value", "")
             caption = embedded.get("articleBody") or embedded.get("name") or ""
 
@@ -330,10 +336,24 @@ class InstagramScraper:
                 # Case-insensitive, supports formats: "123 likes", "1,234 Likes", "12K likes"
                 likes_match = re.search(r'([\d,\.]+[KkMm]?)\s*likes?', og_desc, re.IGNORECASE)
                 comments_match = re.search(r'([\d,\.]+[KkMm]?)\s*comments?', og_desc, re.IGNORECASE)
+                views_match = re.search(r'([\d,\.]+[KkMm]?)\s*(?:views?|plays?)', og_desc, re.IGNORECASE)
                 if likes_match:
                     likes = self._parse_compact_number(likes_match.group(1))
                 if comments_match:
                     comments = self._parse_compact_number(comments_match.group(1))
+                if views_match:
+                    views = self._parse_compact_number(views_match.group(1))
+
+        # Detect video from og:video meta tag or URL pattern
+        is_video = is_reel
+        if not is_video:
+            has_og_video = await page.evaluate("""
+                () => {
+                    const el = document.querySelector('meta[property="og:video"]') || document.querySelector('meta[property="og:video:url"]');
+                    return !!el;
+                }
+            """)
+            is_video = has_og_video
 
         if not caption:
             og_title = await page.evaluate("""
@@ -345,11 +365,13 @@ class InstagramScraper:
             caption = og_title or ""
 
         return IGPostMetrics(
+            views=views,
             likes=likes,
             comments=comments,
             title=caption[:500] if caption else "",
             author=author,
             shortcode=shortcode,
+            is_video=is_video,
         )
 
     @staticmethod

@@ -30,6 +30,7 @@ router = APIRouter()
 class PostAddByLink(BaseModel):
     url: str  # works for both TikTok and Instagram
     brand_id: Optional[uuid.UUID] = None
+    auto_scrape: Optional[bool] = True  # set False for bulk add (frontend calls /sync after)
     # Keep backward compat
     tiktok_url: Optional[str] = None
 
@@ -391,8 +392,11 @@ def add_post_by_link(
         db.commit()
         db.refresh(post)
 
-        background_tasks.add_task(_scrape_tiktok_and_save, post.id, url)
-        return {"message": "Post added and scraping started", "post_id": str(post.id)}
+        # Only auto-scrape for single URL additions (not bulk)
+        # For bulk, frontend will call /sync after all URLs are added
+        if data.auto_scrape is not False:
+            background_tasks.add_task(_scrape_tiktok_and_save, post.id, url)
+        return {"message": "Post added", "post_id": str(post.id)}
 
 
 @router.post("/posts/{post_id}/scrape", status_code=202)

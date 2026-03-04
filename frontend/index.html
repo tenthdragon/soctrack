@@ -1020,18 +1020,15 @@ function startPolling(postId) {
       for (const pid of [...scrapingPosts]) {
         const updated = freshPosts.find(p => p.id === pid);
         if (!updated) {
-          // Post was deleted or doesn't exist anymore
           scrapingPosts.delete(pid);
           anyDone = true;
           continue;
         }
-        // Consider "done" if:
-        // 1) has a title (scrape succeeded), OR
-        // 2) video_id is no longer "pending" (resolved), OR
-        // 3) post already had a title before (re-scrape, snapshot updated)
-        const hasTitleNow = updated.title && updated.title !== '';
-        const wasAlreadyTracked = updated.tiktok_video_id !== 'pending';
-        if (hasTitleNow || wasAlreadyTracked) {
+        // Consider "done" if title exists AND video_id resolved
+        // For re-scrapes, any post with title is done
+        const hasTitleNow = updated.title && updated.title.length > 0;
+        const videoResolved = updated.tiktok_video_id && updated.tiktok_video_id !== 'pending';
+        if (hasTitleNow && videoResolved) {
           scrapingPosts.delete(pid);
           anyDone = true;
         }
@@ -1610,26 +1607,33 @@ async function submitModal() {
 
   closeModal();
 
-  // Add all URLs
+  // Add all URLs (no auto-scrape for bulk, we'll sync after)
   let successCount = 0;
   let failCount = 0;
-  showScrapingOverlay(`Menambahkan ${urls.length} post...`, 'Scraping akan dimulai setelah semua URL ditambahkan');
+  const isBulk = urls.length > 1;
+  showScrapingOverlay(`Menambahkan ${urls.length} post...`, 'Menambahkan URL...');
 
-  for (const url of urls) {
+  for (let i = 0; i < urls.length; i++) {
     try {
-      await apiFetch('/posts/add-by-link', { method: 'POST', body: JSON.stringify({ url: url, brand_id: brandId }) });
+      await apiFetch('/posts/add-by-link', {
+        method: 'POST',
+        body: JSON.stringify({ url: urls[i], brand_id: brandId, auto_scrape: !isBulk }),
+      });
       successCount++;
-      document.getElementById('scrapingDetail').textContent = `${successCount}/${urls.length} URL berhasil ditambahkan`;
     } catch (e) {
       failCount++;
-      console.error(`Failed to add ${url}: ${e.message}`);
+      console.error(`Failed to add ${urls[i]}: ${e.message}`);
     }
+    document.getElementById('scrapingDetail').textContent = `${i + 1}/${urls.length} URL diproses (${successCount} berhasil)`;
   }
 
-  // Refresh and start polling
-  showToast(`${successCount} post ditambahkan${failCount > 0 ? `, ${failCount} gagal` : ''}. Scraping dimulai...`);
+  if (successCount === 0) {
+    hideScrapingOverlay();
+    showToast(`Semua ${failCount} URL gagal ditambahkan`, true);
+    return;
+  }
 
-  // Switch to brand if different
+  // Switch to brand and refresh post list
   if (brandId !== currentBrand) {
     await selectBrand(brandId);
   } else {
@@ -1638,13 +1642,22 @@ async function submitModal() {
     renderBrandStats();
   }
 
-  // Start polling for all pending posts (single poll loop handles all)
-  const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
-  for (const p of pendingPosts) {
-    scrapingPosts.add(p.id);
+  // Trigger single batch sync for the brand (1 browser, sequential scraping)
+  try {
+    await apiFetch(`/brands/${brandId}/sync`, { method: 'POST' });
+  } catch (e) {
+    console.error('Sync trigger failed:', e);
   }
+
+  // Start polling to track sync progress
+  const pendingPosts = currentPosts.filter(p => !p.title || p.tiktok_video_id === 'pending');
   if (pendingPosts.length > 0) {
-    startPolling(pendingPosts[0].id); // triggers the single poll loop
+    pendingPosts.forEach(p => scrapingPosts.add(p.id));
+    pollInitialCount = scrapingPosts.size;
+    startPolling(pendingPosts[0].id);
+  } else {
+    hideScrapingOverlay();
+    showToast(`${successCount} post ditambahkan${failCount > 0 ? `, ${failCount} gagal` : ''}`);
   }
 }
 

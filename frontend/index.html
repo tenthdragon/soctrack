@@ -660,6 +660,12 @@ tr:hover td { background: var(--bg-tertiary); }
         <div class="post-list-panel">
           <div class="brand-stats">
             <div class="brand-stats-grid" id="brandStatsGrid"></div>
+            <div id="brandSnapshotsToggle" style="margin-top:10px;text-align:center;display:none;">
+              <button onclick="toggleBrandSnapshots()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 14px;font-size:11px;color:var(--text-secondary);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'" id="brandSnapshotsBtn">
+                <span id="brandSnapshotsBtnIcon">&#9660;</span> Brand Snapshots
+              </button>
+            </div>
+            <div id="brandSnapshotsContainer" style="display:none;margin-top:10px;"></div>
           </div>
           <div class="post-list-filter">
             <span class="filter-chip active" onclick="filterPosts('all', this)">All</span>
@@ -1157,8 +1163,68 @@ async function renderBrandStats() {
         <div class="stat-mini-delta ${(s.delta || 0) >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(s.delta)} today</div>
       </div>
     `).join('');
+    // Show toggle button if brand has data
+    const toggleEl = document.getElementById('brandSnapshotsToggle');
+    if (toggleEl) toggleEl.style.display = '';
   } catch (e) {
     grid.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--text-muted)">No stats yet</div>';
+  }
+}
+
+let brandSnapshotsOpen = false;
+
+function toggleBrandSnapshots() {
+  brandSnapshotsOpen = !brandSnapshotsOpen;
+  const container = document.getElementById('brandSnapshotsContainer');
+  const icon = document.getElementById('brandSnapshotsBtnIcon');
+  if (brandSnapshotsOpen) {
+    container.style.display = '';
+    icon.innerHTML = '&#9650;';
+    loadBrandSnapshots();
+  } else {
+    container.style.display = 'none';
+    icon.innerHTML = '&#9660;';
+  }
+}
+
+async function loadBrandSnapshots() {
+  const container = document.getElementById('brandSnapshotsContainer');
+  if (!container || !currentBrand) return;
+  container.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text-muted)">Loading brand snapshots...</div>';
+
+  try {
+    const data = await apiFetch(`/brands/${currentBrand}/stats/daily?days=30`);
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text-muted)">Belum ada snapshot. Data muncul setelah scrape harian.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="snapshot-table-box">
+        <div class="snapshot-table-header">Brand Snapshots (${data.length})</div>
+        <table>
+          <thead><tr><th>Date</th><th>Views</th><th>&Delta; Views</th><th>Likes</th><th>&Delta; Likes</th><th>Comments</th><th>Shares</th></tr></thead>
+          <tbody>
+            ${data.slice().reverse().map(s => {
+              const dv = s.delta_views;
+              const dl = s.delta_likes;
+              return `<tr>
+                <td>${s.date}</td>
+                <td>${formatNum(s.views)}</td>
+                <td class="${dv >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dv)}</td>
+                <td>${formatNum(s.likes)}</td>
+                <td class="${dl >= 0 ? 'delta-up' : 'delta-down'}">${formatDelta(dl)}</td>
+                <td>${formatNum(s.comments)}</td>
+                <td>${formatNum(s.shares)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    console.error('Failed to load brand snapshots:', e);
+    container.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text-muted)">Gagal memuat brand snapshots.</div>';
   }
 }
 
@@ -1441,6 +1507,11 @@ async function renderCompare() {
 async function selectBrand(id) {
   currentBrand = id;
   currentPost = null;
+  brandSnapshotsOpen = false;
+  const bsContainer = document.getElementById('brandSnapshotsContainer');
+  const bsIcon = document.getElementById('brandSnapshotsBtnIcon');
+  if (bsContainer) bsContainer.style.display = 'none';
+  if (bsIcon) bsIcon.innerHTML = '&#9660;';
   const brand = brands.find(b => b.id === id);
   document.getElementById('topbarTitle').textContent = `Dashboard — ${brand?.name || ''}`;
   renderBrands();

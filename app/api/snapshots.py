@@ -129,16 +129,106 @@ def brand_stats(brand_id: uuid.UUID, db: Session = Depends(get_db), user: User =
     )
 
 
-@router.get("/brands/{brand_id}/stats/daily")
+class BrandDailySnapshot(BaseModel):
+    date: str
+    views: int
+    likes: int
+    comments: int
+    shares: int
+    delta_views: int
+    delta_likes: int
+    delta_comments: int
+    delta_shares: int
+
+
+@router.get("/brands/{brand_id}/stats/daily", response_model=list[BrandDailySnapshot])
 def brand_daily_stats(
     brand_id: uuid.UUID,
-    days: int = Query(14, ge=1, le=90),
+    days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Daily aggregated stats untuk chart di brand level."""
-    # TODO: implement daily aggregation query
-    return {"message": "Not yet implemented", "brand_id": str(brand_id)}
+    """
+    Daily aggregated stats per brand — mirip tabel snapshot per post,
+    tapi di-SUM dari semua post aktif brand tersebut per tanggal.
+    Delta dihitung dari selisih total hari ini vs hari sebelumnya.
+    """
+    from sqlalchemy import cast, Date
+
+    # Get all active post IDs for this brand
+    active_posts = db.query(Post.id).filter(
+        Post.brand_id == brand_id, Post.is_active == True
+    ).all()
+
+    if not active_posts:
+        return []
+
+    post_ids = [p.id for p in active_posts]
+
+    # Aggregate snapshots by date: SUM views/likes/comments/shares per day
+    # Use the latest snapshot per post per day (in case multiple scrapes in a day)
+    from sqlalchemy.orm import aliased
+    from sqlalchemy import text
+
+    # Subquery: get the latest snapshot per post per day
+    latest_per_day = (
+        db.query(
+            cast(Snapshot.recorded_at, Date).label("snap_date"),
+            Snapshot.post_id,
+            func.max(Snapshot.recorded_at).label("max_recorded"),
+        )
+        .filter(Snapshot.post_id.in_(post_ids))
+        .group_by(cast(Snapshot.recorded_at, Date), Snapshot.post_id)
+        .subquery()
+    )
+
+    # Join back to get the actual metric values from the latest snapshot per post per day
+    rows = (
+        db.query(
+            latest_per_day.c.snap_date,
+            func.sum(Snapshot.views).label("total_views"),
+            func.sum(Snapshot.likes).label("total_likes"),
+            func.sum(Snapshot.comments).label("total_comments"),
+            func.sum(Snapshot.shares).label("total_shares"),
+        )
+        .join(
+            Snapshot,
+            and_(
+                Snapshot.post_id == latest_per_day.c.post_id,
+                Snapshot.recorded_at == latest_per_day.c.max_recorded,
+            ),
+        )
+        .group_by(latest_per_day.c.snap_date)
+        .order_by(latest_per_day.c.snap_date.asc())
+        .all()
+    )
+
+    # Build result with deltas (current day vs previous day)
+    result = []
+    for i, row in enumerate(rows):
+        if i == 0:
+            dv, dl, dc, ds = 0, 0, 0, 0
+        else:
+            prev = rows[i - 1]
+            dv = row.total_views - prev.total_views
+            dl = row.total_likes - prev.total_likes
+            dc = row.total_comments - prev.total_comments
+            ds = row.total_shares - prev.total_shares
+
+        result.append(BrandDailySnapshot(
+            date=row.snap_date.isoformat(),
+            views=row.total_views,
+            likes=row.total_likes,
+            comments=row.total_comments,
+            shares=row.total_shares,
+            delta_views=dv,
+            delta_likes=dl,
+            delta_comments=dc,
+            delta_shares=ds,
+        ))
+
+    # Limit to last N days
+    return result[-days:]
 
 
 @router.get("/compare")
